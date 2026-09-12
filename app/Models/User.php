@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\UserRole;
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
+#[Fillable(['name', 'email', 'password'])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable;
+
+    /**
+     * The model's default values for attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'role' => 'user',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'role' => UserRole::class,
+        ];
+    }
+
+    public static function isManagedAvatarPath(?string $path): bool
+    {
+        $normalizedPath = str_replace('\\', '/', (string) $path);
+        $directory = trim((string) config('admin.profile.avatar_directory'), '/');
+
+        return $normalizedPath !== ''
+            && $directory !== ''
+            && ! str_contains($normalizedPath, '..')
+            && Str::startsWith($normalizedPath, $directory.'/');
+    }
+
+    public function avatarUrl(): ?string
+    {
+        if (! self::isManagedAvatarPath($this->avatar_path)) {
+            return null;
+        }
+
+        return Storage::disk(config('admin.profile.avatar_disk'))->url($this->avatar_path);
+    }
+
+    public function initials(): string
+    {
+        $initials = Str::of($this->name)
+            ->squish()
+            ->explode(' ')
+            ->filter()
+            ->take(2)
+            ->map(fn (string $part): string => Str::upper(Str::substr($part, 0, 1)))
+            ->implode('');
+
+        return $initials !== '' ? $initials : 'A';
+    }
+}
