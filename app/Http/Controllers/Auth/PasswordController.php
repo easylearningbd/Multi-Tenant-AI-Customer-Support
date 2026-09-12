@@ -2,28 +2,39 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\UpdateSubscriberPassword;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateSubscriberPasswordRequest;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Redirect;
+use Throwable;
 
 class PasswordController extends Controller
 {
     /**
      * Update the user's password.
      */
-    public function update(Request $request): RedirectResponse
+    public function update(UpdateSubscriberPasswordRequest $request, UpdateSubscriberPassword $updatePassword): RedirectResponse
     {
-        $validated = $request->validateWithBag('updatePassword', [
-            'current_password' => ['required', 'current_password'],
-            'password' => ['required', Password::defaults(), 'confirmed'],
-        ]);
+        try {
+            $updatePassword->handle($request->user(), $request->validated('password'));
+            $request->session()->regenerate();
+        } catch (Throwable $exception) {
+            report($exception);
 
-        $request->user()->update([
-            'password' => Hash::make($validated['password']),
-        ]);
+            return Redirect::route('profile.edit')->with('toast', [
+                'type' => 'error',
+                'title' => __('Password update failed'),
+                'message' => __('Your password could not be changed. Please try again.'),
+            ]);
+        }
 
-        return back()->with('status', 'password-updated');
+        return Redirect::route('profile.edit')
+            ->with('status', 'password-updated')
+            ->with('toast', [
+                'type' => 'success',
+                'title' => __('Password updated'),
+                'message' => __('Password updated successfully.'),
+            ]);
     }
 }

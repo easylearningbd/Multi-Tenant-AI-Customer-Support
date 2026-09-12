@@ -13,7 +13,7 @@
         @stack('styles')
     </head>
     <body class="nd-subscriber-shell">
-        <a class="nd-sub-skip-link" href="#subscriber-main-content">{{ __('Skip to dashboard content') }}</a>
+        <a class="nd-sub-skip-link" href="#subscriber-main-content">{{ __('Skip to main content') }}</a>
 
         @include('subscriber.partials.sidebar')
         @include('subscriber.partials.header')
@@ -27,8 +27,11 @@
             </main>
         </div>
 
+        @include('admin.partials.toasts')
+
         <script src="{{ asset('theme/assets/libs/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
         <script src="{{ asset('theme/assets/libs/simplebar/simplebar.min.js') }}"></script>
+        <script src="{{ asset('theme/assets/js/pages/toast.init.js') }}"></script>
         @stack('vendor-scripts')
         <script src="{{ asset('js/subscriber-dashboard.js') }}"></script>
         @stack('scripts')
