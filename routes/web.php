@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
@@ -48,6 +49,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('users/{subscriber}/edit', [AdminUserController::class, 'edit'])->whereNumber('subscriber')->name('users.edit');
         Route::put('users/{subscriber}', [AdminUserController::class, 'update'])->whereNumber('subscriber')->name('users.update');
         Route::delete('users/{subscriber}', [AdminUserController::class, 'destroy'])->whereNumber('subscriber')->name('users.destroy');
+
+        Route::patch('plans/{plan}/status', [AdminPlanController::class, 'updateStatus'])->name('plans.status.update');
+        Route::resource('plans', AdminPlanController::class);
 
         Route::post('logout', [AdminAuthenticatedSessionController::class, 'destroy'])
             ->name('logout');

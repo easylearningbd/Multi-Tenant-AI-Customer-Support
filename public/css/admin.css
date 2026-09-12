@@ -1376,6 +1376,333 @@ body.admin-shell {
     }
 }
 
+/* Admin subscription plans */
+.nd-plan-form-card .card-body,
+.nd-plan-detail-card .card-body,
+.nd-plans-card > .card-body {
+    padding: 1.35rem;
+}
+
+.nd-plan-form-card h2,
+.nd-plan-detail-card h2 {
+    margin: 0 0 0.3rem;
+    color: var(--nd-navy);
+    font-size: 1rem;
+}
+
+.nd-plan-card-copy {
+    margin: 0 0 1.2rem;
+    color: var(--nd-muted);
+    font-size: 0.75rem;
+}
+
+.nd-plan-form-card .form-label {
+    color: #445167;
+    font-size: 0.75rem;
+    font-weight: 650;
+}
+
+.nd-plan-form-card .form-label > span {
+    color: var(--nd-danger);
+}
+
+.nd-plan-form-card textarea.nd-form-control {
+    min-height: 108px;
+    resize: vertical;
+}
+
+.nd-plan-form-card #plan-features {
+    min-height: 165px;
+}
+
+.nd-plan-switch {
+    display: flex;
+    min-height: 38px;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 0;
+}
+
+.nd-plan-switch .form-check-input {
+    width: 2.45rem;
+    height: 1.35rem;
+    margin: 0;
+    float: none;
+    border-color: #c5ccd6;
+    background-color: #c5ccd6;
+}
+
+.nd-plan-switch .form-check-input:checked {
+    border-color: var(--nd-primary);
+    background-color: var(--nd-primary);
+}
+
+.nd-plan-switch .form-check-label {
+    color: #5d6a7e;
+    font-size: 0.76rem;
+}
+
+.nd-plan-action-card .card-body {
+    padding: 1.15rem;
+}
+
+.nd-plan-alert {
+    padding: 0.7rem 0.8rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+}
+
+.nd-plans-table-wrap {
+    overflow: visible;
+}
+
+.nd-plans-table {
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0 9px;
+}
+
+.nd-plans-table thead th {
+    padding: 0.55rem 1rem;
+    border: 0;
+    color: #607086;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.nd-plans-table tbody td {
+    padding: 0.9rem 1rem;
+    border-top: 1px solid var(--nd-border);
+    border-bottom: 1px solid var(--nd-border);
+    background: var(--nd-surface);
+    color: #536176;
+    font-size: 0.75rem;
+}
+
+.nd-plans-table tbody td:first-child {
+    border-left: 1px solid var(--nd-border);
+    border-radius: 12px 0 0 12px;
+}
+
+.nd-plans-table tbody td:last-child {
+    border-right: 1px solid var(--nd-border);
+    border-radius: 0 12px 12px 0;
+}
+
+.nd-plan-name,
+.nd-plan-price {
+    display: flex;
+    flex-direction: column;
+    gap: 0.16rem;
+    min-width: 120px;
+}
+
+.nd-plan-name a,
+.nd-plan-price strong {
+    color: var(--nd-navy);
+    font-size: 0.83rem;
+    font-weight: 750;
+}
+
+.nd-plan-name span,
+.nd-plan-price span {
+    color: var(--nd-muted);
+    font-size: 0.68rem;
+}
+
+.nd-limit-badges {
+    display: flex;
+    min-width: 300px;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.nd-limit-badges > span {
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    background: #e9edf1;
+    color: #647184;
+    font-size: 0.64rem;
+    white-space: nowrap;
+}
+
+.nd-status-muted {
+    background: #edf0f3;
+    color: #6e7989;
+}
+
+button.nd-status-badge {
+    border: 0;
+}
+
+button.nd-status-badge:hover,
+button.nd-status-badge:focus-visible {
+    box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.15);
+}
+
+.nd-plan-detail-header,
+.nd-plan-detail-header > div:first-child {
+    display: flex;
+    align-items: center;
+}
+
+.nd-plan-detail-header {
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.nd-plan-detail-header > div:first-child {
+    gap: 0.85rem;
+}
+
+.nd-plan-detail-header h1 {
+    margin: 0 0 0.1rem;
+    color: var(--nd-navy);
+    font-size: 1.2rem;
+}
+
+.nd-plan-detail-header p {
+    margin: 0 0 0.35rem;
+    color: var(--nd-muted);
+    font-size: 0.75rem;
+}
+
+.nd-plan-detail-grid,
+.nd-plan-limit-list {
+    display: grid;
+    margin: 1rem 0 0;
+}
+
+.nd-plan-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+}
+
+.nd-plan-detail-grid > div,
+.nd-plan-limit-list > div {
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--nd-border);
+}
+
+.nd-plan-detail-grid > div {
+    padding-right: 1rem;
+}
+
+.nd-plan-detail-grid dt,
+.nd-plan-limit-list dt {
+    margin-bottom: 0.2rem;
+    color: #96a2b2;
+    font-size: 0.67rem;
+    font-weight: 500;
+}
+
+.nd-plan-detail-grid dd,
+.nd-plan-limit-list dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--nd-navy);
+    font-size: 0.77rem;
+    font-weight: 650;
+}
+
+.nd-plan-limit-list > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.nd-plan-feature {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--nd-border);
+    color: #536176;
+    font-size: 0.75rem;
+}
+
+.nd-plan-feature:last-child {
+    border-bottom: 0;
+}
+
+.nd-plan-feature i {
+    color: var(--nd-success);
+    font-size: 1rem;
+}
+
+@media (max-width: 991.98px) {
+    .nd-plans-table-wrap {
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .nd-plan-detail-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .nd-plan-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .nd-plans-table thead {
+        display: none;
+    }
+
+    .nd-plans-table,
+    .nd-plans-table tbody,
+    .nd-plans-table tr,
+    .nd-plans-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .nd-plans-table tbody tr {
+        display: grid;
+        margin-bottom: 0.8rem;
+        padding: 0.85rem;
+        border: 1px solid var(--nd-border);
+        border-radius: 12px;
+        background: var(--nd-surface);
+    }
+
+    .nd-plans-table tbody td,
+    .nd-plans-table tbody td:first-child,
+    .nd-plans-table tbody td:last-child {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.6rem 0;
+        border: 0;
+        border-bottom: 1px solid var(--nd-border);
+        border-radius: 0;
+    }
+
+    .nd-plans-table tbody td:last-child {
+        border-bottom: 0;
+    }
+
+    .nd-plans-table tbody td::before {
+        content: attr(data-label);
+        color: #8793a5;
+        font-size: 0.64rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .nd-limit-badges {
+        min-width: 0;
+        justify-content: flex-end;
+    }
+}
+
 /* Admin subscriber management */
 .nd-page-heading-actions,
 .nd-user-detail-header,
