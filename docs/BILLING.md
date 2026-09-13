@@ -44,11 +44,59 @@ expired entitlement records.
 Invoices remain an empty state because the application has no invoice or payment model. The Free
 Trial does not create a fake invoice.
 
-## Future checkout boundary
+## Manual Bank Transfer
 
-No checkout or paid plan mutation route exists. A future implementation should add an authorized
-`POST /billing/checkout` action that accepts only a plan identifier, reloads an active recurring
-plan from the database, uses its stored minor-unit price and currency, creates a provider session
-through a gateway contract, and activates a subscription only after an idempotently verified
-webhook. It must persist an invoice/payment record scoped to the billing owner and retain the plan
-snapshot used for that purchase.
+The subscriber Billing page allows an eligible active monthly or yearly plan to enter the manual
+Bank Transfer workflow. The server reloads and locks the plan, derives the expected minor-unit
+amount and currency, and stores an immutable plan snapshot. Browser values cannot change those
+terms. Trial, custom-priced, zero-priced, inactive, current, and currency-mismatched plans are
+rejected server-side.
+
+Configure Bank Transfer before enabling it:
+
+```env
+BANK_TRANSFER_ENABLED=true
+BANK_TRANSFER_BANK_NAME="Example Bank"
+BANK_TRANSFER_ACCOUNT_NAME="NeuralDesk"
+BANK_TRANSFER_ACCOUNT_NUMBER=
+BANK_TRANSFER_BRANCH=
+BANK_TRANSFER_ROUTING_NUMBER=
+BANK_TRANSFER_SWIFT_CODE=
+BANK_TRANSFER_IBAN=
+BANK_TRANSFER_CURRENCY=USD
+BANK_TRANSFER_INSTRUCTIONS=
+BANK_TRANSFER_PROOF_DISK=local
+BANK_TRANSFER_PROOF_MAX_KB=10240
+BANK_TRANSFER_SUBMISSION_RATE_PER_MINUTE=3
+```
+
+Bank name, account name, account number, and a three-letter currency are required. Missing or
+incomplete configuration disables plan selection. Optional fields are omitted from the page rather
+than rendered blank. Proofs use the private `local` disk by default under generated
+`payment-proofs/{billing-owner}` paths and are available only through an authenticated,
+owner-authorized download controller.
+
+Submission creates one pending `payments` record, one pending `invoices` record, and one
+`payment_attachments` proof record in a transaction. An owner-row lock prevents equivalent pending
+submissions from being duplicated. Filesystem cleanup runs when database persistence fails. A
+pending payment never changes the current subscription.
+
+The domain actions `ApproveBankTransferPayment` and `RejectBankTransferPayment` are intentionally
+not exposed by routes yet. Both require an Admin reviewer, lock the payment, and are idempotent.
+Approval pays the invoice and activates one manual-period subscription. A different plan starts
+immediately and closes the previous entitlement without deleting history. Renewal of the same
+manual plan extends from the later of the current period end or approval time. Monthly and yearly
+period calculations avoid calendar overflow. Rejection preserves the current subscription and
+stores the subscriber-visible reason.
+
+Payment submission and review notifications are dispatched after their database transaction has
+committed. The queue worker must process the `notifications` queue outside local synchronous queue
+environments.
+
+## Future gateway boundary
+
+Stripe is shown as disabled and has no route, SDK, key, webhook, or payment mutation. A future
+gateway implementation must accept only a plan identifier, reload an eligible plan, use its stored
+minor-unit price and currency through a gateway contract, and activate a subscription only after an
+idempotently verified webhook. Provider checkout must retain the purchase snapshot and must not
+reuse the subscriber-entered Bank Transfer amount as an authoritative price.

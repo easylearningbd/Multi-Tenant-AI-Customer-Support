@@ -6,12 +6,15 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\BankTransferPaymentController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubscriberDashboardController;
 use App\Http\Controllers\SupportTicketAttachmentController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SupportTicketReplyController;
+use App\Models\Payment;
 use App\Models\SupportTicket;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +40,22 @@ Route::bind('subscriberTicket', function (string $value): SupportTicket {
         ->firstOrFail();
 });
 
+Route::bind('subscriberPayment', function (string $value): Payment {
+    $actor = request()->user();
+
+    if (! $actor instanceof User || $actor->role !== UserRole::USER) {
+        $payment = new Payment;
+        $payment->reference = $value;
+
+        return $payment;
+    }
+
+    return Payment::query()
+        ->ownedBy($actor)
+        ->where('reference', $value)
+        ->firstOrFail();
+});
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -47,6 +66,17 @@ Route::get('/dashboard', SubscriberDashboardController::class)
 
 Route::middleware(['auth', 'role:user'])->group(function () {
     Route::get('/billing', BillingController::class)->name('billing.index');
+    Route::get('/billing/pay/{plan}', [BankTransferPaymentController::class, 'create'])
+        ->whereNumber('plan')
+        ->name('billing.payment.create');
+    Route::post('/billing/pay/{plan}/bank-transfer', [BankTransferPaymentController::class, 'store'])
+        ->whereNumber('plan')
+        ->middleware('throttle:bank-transfer-payment')
+        ->name('billing.bank-transfer.store');
+    Route::get('/billing/payments/{subscriberPayment}', [BankTransferPaymentController::class, 'show'])
+        ->name('billing.payments.show');
+    Route::get('/billing/payments/{subscriberPayment}/proof', [PaymentProofController::class, 'download'])
+        ->name('billing.payments.proof.download');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

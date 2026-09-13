@@ -1,12 +1,10 @@
 <?php
 
 use App\Enums\PlanInterval;
+use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 test('guests are redirected to admin login from plan management routes', function () {
     $plan = Plan::factory()->create();
@@ -273,20 +271,14 @@ test('plans referenced by subscription history cannot be deleted or have commerc
 });
 
 test('historical payment references block hard deletion', function () {
-    createPlanReferenceTable('payments');
+    $admin = User::factory()->admin()->create();
+    $plan = Plan::factory()->create();
+    Payment::factory()->for($plan)->create(['plan_snapshot' => $plan->subscriptionSnapshot()]);
 
-    try {
-        $admin = User::factory()->admin()->create();
-        $plan = Plan::factory()->create();
-        DB::table('payments')->insert(['plan_id' => $plan->id, 'snapshot' => '{"paid":true}']);
+    $this->actingAs($admin)->delete(route('admin.plans.destroy', $plan));
 
-        $this->actingAs($admin)->delete(route('admin.plans.destroy', $plan));
-
-        $this->assertDatabaseHas('plans', ['id' => $plan->id]);
-        $this->assertDatabaseHas('payments', ['plan_id' => $plan->id]);
-    } finally {
-        Schema::dropIfExists('payments');
-    }
+    $this->assertDatabaseHas('plans', ['id' => $plan->id]);
+    $this->assertDatabaseHas('payments', ['plan_id' => $plan->id]);
 });
 
 function planPayload(array $overrides = []): array
@@ -310,13 +302,4 @@ function planPayload(array $overrides = []): array
         'team_members_limit' => 0,
         'storage_mb_limit' => 0,
     ], $overrides);
-}
-
-function createPlanReferenceTable(string $table): void
-{
-    Schema::create($table, function (Blueprint $blueprint): void {
-        $blueprint->id();
-        $blueprint->foreignId('plan_id')->constrained()->restrictOnDelete();
-        $blueprint->json('snapshot');
-    });
 }

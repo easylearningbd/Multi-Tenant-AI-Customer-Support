@@ -105,6 +105,18 @@ class User extends Authenticatable
         return $this->hasMany(Subscription::class);
     }
 
+    /** @return HasMany<Payment, $this> */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /** @return HasMany<Invoice, $this> */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function isBillingOwner(): bool
     {
         return $this->role === UserRole::USER;

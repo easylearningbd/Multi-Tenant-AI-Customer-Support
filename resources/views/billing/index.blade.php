@@ -133,8 +133,13 @@
                                     <button type="button" disabled aria-describedby="plan-note-{{ $plan->id }}">{{ __('Available at registration') }}</button>
                                     <small id="plan-note-{{ $plan->id }}">{{ __('Trials cannot be started again from Billing.') }}</small>
                                 @else
-                                    <button type="button" disabled aria-describedby="plan-note-{{ $plan->id }}">{{ __('Choose plan') }} <i class="iconoir-arrow-right" aria-hidden="true"></i></button>
-                                    <small id="plan-note-{{ $plan->id }}">{{ __('Payment gateway is not available yet.') }}</small>
+                                    @if ($available['canPay'])
+                                        <a href="{{ route('billing.payment.create', $plan) }}">{{ __('Choose plan') }} <i class="iconoir-arrow-right" aria-hidden="true"></i></a>
+                                        <small>{{ __('Pay securely by bank transfer.') }}</small>
+                                    @else
+                                        <button type="button" disabled aria-describedby="plan-note-{{ $plan->id }}">{{ __('Choose plan') }} <i class="iconoir-arrow-right" aria-hidden="true"></i></button>
+                                        <small id="plan-note-{{ $plan->id }}">{{ __('Bank transfer is not available for this plan.') }}</small>
+                                    @endif
                                 @endif
                             </div>
                         </article>
@@ -151,14 +156,25 @@
             @else
                 <div class="table-responsive">
                     <table class="table align-middle nd-sub-invoice-table">
-                        <thead><tr><th scope="col">{{ __('Date') }}</th><th scope="col">{{ __('Description') }}</th><th scope="col">{{ __('Amount') }}</th><th scope="col">{{ __('Status') }}</th></tr></thead>
+                        <thead><tr><th scope="col">{{ __('Date') }}</th><th scope="col">{{ __('Reference') }}</th><th scope="col">{{ __('Description') }}</th><th scope="col">{{ __('Amount') }}</th><th scope="col">{{ __('Method') }}</th><th scope="col">{{ __('Status') }}</th><th scope="col"><span class="visually-hidden">{{ __('Action') }}</span></th></tr></thead>
                         <tbody>
                             @foreach ($billing['invoices'] as $invoice)
-                                <tr><td>{{ $invoice['date'] }}</td><td>{{ $invoice['description'] }}</td><td>{{ $invoice['amount'] }}</td><td>{{ $invoice['status'] }}</td></tr>
+                                <tr>
+                                    <td><time datetime="{{ $invoice->submitted_at->toIso8601String() }}">{{ $invoice->submitted_at->format('M d, Y') }}</time></td>
+                                    <td><strong>{{ $invoice->invoice?->number ?? $invoice->reference }}</strong><small>{{ $invoice->reference }}</small></td>
+                                    <td>{{ $invoice->plan_name_snapshot }} {{ __('subscription') }}</td>
+                                    <td>{{ $invoice->formattedExpectedAmount() }}</td>
+                                    <td>{{ $invoice->payment_method->label() }}</td>
+                                    <td><span class="nd-sub-payment-status status-{{ $invoice->status->value }}">{{ $invoice->status->label() }}</span></td>
+                                    <td><a class="nd-sub-invoice-action" href="{{ route('billing.payments.show', $invoice) }}" aria-label="{{ __('View payment :reference', ['reference' => $invoice->reference]) }}"><i class="iconoir-eye" aria-hidden="true"></i></a></td>
+                                </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
+                @if ($billing['invoices']->hasPages())
+                    <div class="nd-sub-billing-pagination">{{ $billing['invoices']->withQueryString()->links() }}</div>
+                @endif
             @endif
         </section>
     </div>

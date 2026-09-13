@@ -12,7 +12,10 @@ use Illuminate\Support\Collection;
 
 final class SubscriberBillingData
 {
-    public function __construct(private readonly CurrentSubscriptionResolver $subscriptions) {}
+    public function __construct(
+        private readonly CurrentSubscriptionResolver $subscriptions,
+        private readonly BankTransferConfiguration $bankTransfer,
+    ) {}
 
     /** @return array<string, mixed> */
     public function for(User $billingOwner): array
@@ -24,9 +27,13 @@ final class SubscriberBillingData
             'subscription' => $subscription,
             'current' => $this->currentPlan($subscription, $usageValues),
             'availablePlans' => $this->availablePlans($subscription, $billingOwner),
-            'invoices' => collect(),
-            'invoiceSourceAvailable' => false,
-            'checkoutAvailable' => false,
+            'invoices' => $billingOwner->payments()
+                ->with('invoice:id,payment_id,number,status,issued_at,paid_at')
+                ->latest('submitted_at')
+                ->latest('id')
+                ->paginate(10, pageName: 'payments'),
+            'invoiceSourceAvailable' => true,
+            'checkoutAvailable' => $this->bankTransfer->isComplete(),
             'billingOwnerId' => $billingOwner->id,
         ];
     }
@@ -71,7 +78,10 @@ final class SubscriberBillingData
         }
 
         if ($status === SubscriptionStatus::ACTIVE) {
-            return ['label' => __('Renews on'), 'date' => $subscription->current_period_ends_at];
+            return [
+                'label' => $subscription->provider === 'bank_transfer' ? __('Active until') : __('Renews on'),
+                'date' => $subscription->current_period_ends_at,
+            ];
         }
 
         if ($status === SubscriptionStatus::CANCELED) {
@@ -101,15 +111,20 @@ final class SubscriberBillingData
                 'trial_days', 'custom_pricing', 'is_active', 'sort_order', 'features', 'limits',
             ])
             ->map(function (Plan $plan) use ($subscription, $billingOwner): array {
-                $isCurrent = $subscription?->plan_id === $plan->id;
+                $isCurrent = $subscription?->plan_id === $plan->id && $subscription->grantsEntitlements();
                 $trialUsed = $plan->interval === PlanInterval::TRIAL
                     && $billingOwner->trial_claimed_at !== null
+                    && ! $isCurrent;
+                $canPay = $this->bankTransfer->isComplete()
+                    && $plan->supportsBankTransferPayment()
+                    && $plan->currency === $this->bankTransfer->currency()
                     && ! $isCurrent;
 
                 return [
                     'model' => $plan,
                     'isCurrent' => $isCurrent,
                     'trialUsed' => $trialUsed,
+                    'canPay' => $canPay,
                     'priceLabel' => $plan->custom_pricing ? __('Custom') : $plan->formattedPrice(),
                     'intervalLabel' => $plan->custom_pricing ? __('Contact sales') : $plan->interval->label(),
                     'features' => array_values($plan->features ?? []),

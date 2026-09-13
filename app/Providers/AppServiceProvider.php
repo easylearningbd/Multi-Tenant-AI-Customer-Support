@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\SupportTicket;
 use App\Models\User;
+use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
 use App\Policies\SupportTicketPolicy;
 use App\Policies\UserPolicy;
@@ -31,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Plan::class, PlanPolicy::class);
+        Gate::policy(Payment::class, PaymentPolicy::class);
         Gate::policy(SupportTicket::class, SupportTicketPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
 
@@ -51,6 +54,16 @@ class AppServiceProvider extends ServiceProvider
                 'type' => 'warning',
                 'title' => __('Too many replies'),
                 'message' => __('Please wait before sending another reply.'),
+            ]),
+        ));
+
+        RateLimiter::for('bank-transfer-payment', fn (Request $request): Limit => Limit::perMinute(
+            max(1, (int) config('billing.bank_transfer.submission_rate_per_minute')),
+        )->by('bank-transfer-payment:'.$request->user()?->id)->response(
+            fn (): RedirectResponse => back()->with('toast', [
+                'type' => 'warning',
+                'title' => __('Too many payment attempts'),
+                'message' => __('Please wait before submitting another bank-transfer payment.'),
             ]),
         ));
     }

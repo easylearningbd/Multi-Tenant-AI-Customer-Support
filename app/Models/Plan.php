@@ -113,6 +113,14 @@ final class Plan extends Model
             && $this->interval->isRecurring();
     }
 
+    public function supportsBankTransferPayment(): bool
+    {
+        return $this->is_active
+            && ! $this->custom_pricing
+            && $this->interval->isRecurring()
+            && $this->price_minor > 0;
+    }
+
     /** @return array<string, mixed> */
     public function subscriptionSnapshot(): array
     {
