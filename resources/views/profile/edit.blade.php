@@ -10,12 +10,7 @@
     @endphp
 
     <div class="nd-sub-settings-page">
-        <nav class="nd-sub-settings-tabs" aria-label="{{ __('Settings sections') }}">
-            <a class="active" href="{{ route('profile.edit') }}" aria-current="page"><i class="iconoir-user" aria-hidden="true"></i>{{ __('Profile') }}</a>
-            <span aria-disabled="true" title="{{ __('Two-factor authentication is not available yet.') }}"><i class="iconoir-shield-check" aria-hidden="true"></i>{{ __('2FA') }}</span>
-            <span aria-disabled="true" title="{{ __('Notification settings are not available yet.') }}"><i class="iconoir-bell" aria-hidden="true"></i>{{ __('Notifications') }}</span>
-            <span aria-disabled="true" title="{{ __('Support settings are not available yet.') }}"><i class="iconoir-lifebelt" aria-hidden="true"></i>{{ __('Support') }}</span>
-        </nav>
+        @include('subscriber.partials.settings-tabs', ['activeSettingsTab' => 'profile'])
 
         <section class="row g-3 nd-sub-account-status" aria-label="{{ __('Account status') }}">
             @foreach ([

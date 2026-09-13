@@ -8,7 +8,7 @@
         ['label' => __('Conversations'), 'icon' => 'iconoir-chat-bubble', 'route' => 'conversations.index'],
         ['label' => __('Team'), 'icon' => 'iconoir-community', 'route' => 'team.index'],
         ['label' => __('Billing'), 'icon' => 'iconoir-credit-card', 'route' => 'billing.index'],
-        ['label' => __('Settings'), 'icon' => 'iconoir-settings', 'route' => 'profile.edit'],
+        ['label' => __('Settings'), 'icon' => 'iconoir-settings', 'route' => 'profile.edit', 'patterns' => ['profile.*', 'support-tickets.*']],
     ];
 @endphp
 
@@ -24,7 +24,8 @@
     <nav class="nd-sub-navigation" aria-label="{{ __('Workspace navigation') }}">
         @foreach ($navigation as $item)
             @if (Route::has($item['route']))
-                <a class="{{ request()->routeIs($item['route']) ? 'active' : '' }}" href="{{ route($item['route']) }}" @if (request()->routeIs($item['route'])) aria-current="page" @endif>
+                @php($isActive = request()->routeIs(...($item['patterns'] ?? [$item['route']])))
+                <a class="{{ $isActive ? 'active' : '' }}" href="{{ route($item['route']) }}" @if ($isActive) aria-current="page" @endif>
                     <i class="{{ $item['icon'] }}" aria-hidden="true"></i><span>{{ $item['label'] }}</span>
                 </a>
             @else
