@@ -1153,6 +1153,297 @@ body.nd-subscriber-shell {
 .nd-sub-message-attachments a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd-sub-message-attachments a small { color: #98a4b5; white-space: nowrap; }
 
+.nd-sub-billing-page {
+    padding-bottom: 2.5rem;
+}
+
+.nd-sub-billing-card {
+    border: 1px solid var(--nd-sub-border);
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 18px 45px rgba(22, 32, 51, 0.06);
+}
+
+.nd-sub-current-plan-card {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.nd-sub-current-plan-card::before,
+.nd-sub-plan-card.is-current::before {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #655cf1, #08bceb);
+    content: '';
+}
+
+.nd-sub-current-plan-header,
+.nd-sub-plan-features-card > header {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.nd-sub-billing-icon {
+    display: inline-grid;
+    width: 50px;
+    height: 50px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 15px;
+    font-size: 1.25rem;
+}
+
+.nd-sub-billing-icon.current { background: linear-gradient(145deg, #655cf1, #0dbde9); color: #fff; }
+.nd-sub-billing-icon.features { background: #efefff; color: var(--nd-sub-purple); }
+.nd-sub-billing-icon.invoice { background: #e8f8fc; color: #08a9d2; }
+
+.nd-sub-current-plan-header small,
+.nd-sub-plan-features-card header small,
+.nd-sub-billing-section-heading small {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: #93a0b4;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.nd-sub-current-plan-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.nd-sub-current-plan-name h2,
+.nd-sub-plan-features-card h2,
+.nd-sub-billing-section-heading h2 {
+    margin: 0;
+    color: var(--nd-sub-navy);
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.nd-sub-subscription-status,
+.nd-sub-current-badge {
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    padding: 0.2rem 0.62rem;
+    border-radius: 999px;
+    background: #efefff;
+    color: var(--nd-sub-purple);
+    font-size: 0.62rem;
+    font-weight: 800;
+}
+
+.nd-sub-subscription-status.status-active,
+.nd-sub-subscription-status.status-trialing { background: #e7f8ef; color: #16a85b; }
+.nd-sub-subscription-status.status-past-due { background: #fff3df; color: #dc870b; }
+.nd-sub-subscription-status.status-canceled,
+.nd-sub-subscription-status.status-expired,
+.nd-sub-subscription-status.status-incomplete { background: #eef1f5; color: #68758a; }
+
+.nd-sub-billing-date {
+    margin: 1.1rem 0 1.25rem;
+    color: #46556b;
+    font-size: 0.72rem;
+    font-weight: 750;
+}
+
+.nd-sub-usage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.nd-sub-usage-item {
+    padding: 0.85rem 0.9rem;
+    border: 1px solid #eef1f5;
+    border-radius: 15px;
+    background: #fafbfc;
+}
+
+.nd-sub-usage-item > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+}
+
+.nd-sub-usage-item h3,
+.nd-sub-usage-item strong {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.nd-sub-usage-item h3 { color: #36445a; }
+.nd-sub-usage-item strong { color: var(--nd-sub-purple); text-align: right; }
+
+.nd-sub-usage-progress {
+    height: 7px;
+    margin-top: 0.7rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #eef1f5;
+}
+
+.nd-sub-usage-progress span {
+    display: block;
+    width: var(--nd-usage-width, 0%);
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #655cf1, #08bceb);
+}
+
+.nd-sub-usage-progress.is-unlimited span { width: 0; }
+
+.nd-sub-plan-features-card {
+    padding: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.nd-sub-plan-features-card > ul,
+.nd-sub-plan-feature-list {
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nd-sub-plan-features-card li,
+.nd-sub-plan-feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    color: #536177;
+    font-size: 0.7rem;
+    line-height: 1.45;
+}
+
+.nd-sub-plan-features-card li + li,
+.nd-sub-plan-feature-list li + li { margin-top: 0.65rem; }
+.nd-sub-plan-features-card li i,
+.nd-sub-plan-feature-list li i { margin-top: 0.12rem; color: var(--nd-sub-purple); }
+
+.nd-sub-available-plans,
+.nd-sub-invoices-card {
+    margin-top: 1.5rem;
+    padding: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.nd-sub-billing-section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.nd-sub-billing-section-heading p {
+    margin: 0;
+    color: #68758a;
+    font-size: 0.68rem;
+}
+
+.nd-sub-plan-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.nd-sub-plan-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 470px;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 1.2rem;
+    border: 1px solid #e2e6ed;
+    border-radius: 18px;
+    background: #fff;
+}
+
+.nd-sub-plan-card.is-current { border-color: #bbb7ff; box-shadow: 0 10px 28px rgba(101, 92, 241, 0.08); }
+.nd-sub-current-badge { position: absolute; top: 1.1rem; right: 1rem; }
+.nd-sub-plan-card h3 { margin: 0; padding-right: 4rem; color: var(--nd-sub-navy); font-size: 0.9rem; font-weight: 800; overflow-wrap: anywhere; }
+.nd-sub-plan-card > p { min-height: 2.1rem; margin: 0.3rem 0 0.8rem; color: #68758a; font-size: 0.66rem; line-height: 1.5; }
+.nd-sub-plan-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; padding-bottom: 0.9rem; border-bottom: 1px solid #edf0f4; }
+.nd-sub-plan-price strong { color: #080d20; font-size: 1.35rem; font-weight: 850; }
+.nd-sub-plan-price span { color: #8995a7; font-size: 0.64rem; }
+.nd-sub-plan-feature-list { min-height: 95px; margin-top: 0.9rem; }
+.nd-sub-plan-no-features { min-height: 95px !important; margin-top: 0.9rem !important; color: #93a0b3 !important; }
+
+.nd-sub-plan-limits {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+    margin: 0.9rem 0;
+}
+
+.nd-sub-plan-limits div { min-width: 0; padding: 0.4rem 0.5rem; border-radius: 8px; background: #f6f7f9; }
+.nd-sub-plan-limits dt { overflow: hidden; color: #7d899b; font-size: 0.55rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.nd-sub-plan-limits dd { margin: 0.08rem 0 0; color: #47556a; font-size: 0.61rem; font-weight: 800; }
+
+.nd-sub-plan-action { margin-top: auto; text-align: center; }
+.nd-sub-plan-action button,
+.nd-sub-plan-action > a,
+.nd-sub-billing-dark-button {
+    display: flex;
+    width: 100%;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.6rem 0.8rem;
+    border: 0;
+    border-radius: 999px;
+    background: #10162a;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.nd-sub-plan-action button:disabled { background: #777d8a; cursor: not-allowed; opacity: 1; }
+.nd-sub-plan-action .is-contact { background: #060b1d; }
+.nd-sub-plan-action small { display: block; min-height: 1rem; margin-top: 0.25rem; color: #8793a5; font-size: 0.56rem; }
+.nd-sub-billing-dark-button { width: auto; padding-inline: 1.1rem; }
+
+.nd-sub-billing-empty {
+    display: flex;
+    min-height: 230px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.nd-sub-billing-empty.compact { min-height: 170px; }
+.nd-sub-billing-empty.invoice-empty { min-height: 200px; }
+.nd-sub-billing-empty h2,
+.nd-sub-billing-empty h3 { margin: 0.8rem 0 0.25rem; color: var(--nd-sub-navy); font-size: 0.9rem; font-weight: 800; }
+.nd-sub-billing-empty p { max-width: 440px; margin: 0 0 0.85rem; color: #8390a3; font-size: 0.68rem; }
+
+.nd-sub-invoice-table { margin: 0; }
+.nd-sub-invoice-table th { border-color: #edf0f4; color: #91a0b3; font-size: 0.61rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.nd-sub-invoice-table td { border-color: #edf0f4; color: #526076; font-size: 0.7rem; }
+
+@media (max-width: 1199.98px) {
+    .nd-sub-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px) {
+    .nd-sub-plan-grid { grid-template-columns: 1fr; }
+    .nd-sub-plan-card { min-height: auto; }
+    .nd-sub-billing-section-heading { align-items: flex-start; flex-direction: column; }
+}
+
 .nd-sub-sidebar-collapsed .nd-sub-sidebar {
     transform: translateX(-100%);
 }
@@ -1321,6 +1612,11 @@ body.nd-subscriber-shell {
     .nd-sub-ticket-message { grid-template-columns: 36px minmax(0, 1fr); }
     .nd-sub-message-avatar { width: 36px; height: 36px; }
     .nd-sub-message-attachments a { max-width: 250px; }
+    .nd-sub-usage-grid { grid-template-columns: 1fr; }
+    .nd-sub-current-plan-card,
+    .nd-sub-plan-features-card,
+    .nd-sub-available-plans,
+    .nd-sub-invoices-card { border-radius: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

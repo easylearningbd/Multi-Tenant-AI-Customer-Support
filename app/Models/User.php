@@ -42,6 +42,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
+            'trial_claimed_at' => 'immutable_datetime',
         ];
     }
 
@@ -96,5 +97,16 @@ class User extends Authenticatable
     public function supportTicketMessages(): HasMany
     {
         return $this->hasMany(SupportTicketMessage::class, 'sender_id');
+    }
+
+    /** @return HasMany<Subscription, $this> */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function isBillingOwner(): bool
+    {
+        return $this->role === UserRole::USER;
     }
 }

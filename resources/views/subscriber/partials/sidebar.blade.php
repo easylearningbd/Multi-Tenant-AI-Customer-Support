@@ -44,7 +44,7 @@
                 <span aria-hidden="true">{{ $subscriber?->initials() ?? 'U' }}</span>
             @endif
         </span>
-        <span class="nd-sub-account-copy"><strong>{{ $subscriber?->name }}</strong><small>{{ $dashboard['planName'] ?? __('No active plan') }}</small></span>
+        <span class="nd-sub-account-copy"><strong>{{ $subscriber?->name }}</strong><small>{{ $subscriberPlanName ?? $dashboard['planName'] ?? __('No active plan') }}</small></span>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" aria-label="{{ __('Log out') }}" title="{{ __('Log out') }}"><i class="iconoir-log-out" aria-hidden="true"></i></button>

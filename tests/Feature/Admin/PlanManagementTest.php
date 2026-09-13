@@ -2,6 +2,7 @@
 
 use App\Enums\PlanInterval;
 use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -251,28 +252,24 @@ test('unused plans can be deleted', function () {
 });
 
 test('plans referenced by subscription history cannot be deleted or have commercial terms changed', function () {
-    createPlanReferenceTable('subscriptions');
+    $admin = User::factory()->admin()->create();
+    $plan = Plan::factory()->create();
+    $subscription = Subscription::factory()->for($plan)->create([
+        'plan_snapshot' => $plan->subscriptionSnapshot(),
+    ]);
 
-    try {
-        $admin = User::factory()->admin()->create();
-        $plan = Plan::factory()->create();
-        DB::table('subscriptions')->insert(['plan_id' => $plan->id, 'snapshot' => '{"price_minor":2900}']);
+    $this->actingAs($admin)
+        ->delete(route('admin.plans.destroy', $plan))
+        ->assertSessionHas('toast', fn (array $toast): bool => $toast['message'] === 'This plan has subscription or billing history. Deactivate it instead of deleting it.');
 
-        $this->actingAs($admin)
-            ->delete(route('admin.plans.destroy', $plan))
-            ->assertSessionHas('toast', fn (array $toast): bool => $toast['message'] === 'This plan has subscription or billing history. Deactivate it instead of deleting it.');
+    $this->actingAs($admin)->put(route('admin.plans.update', $plan), planPayload([
+        'name' => $plan->name,
+        'slug' => $plan->slug,
+        'price' => '99.00',
+    ]))->assertSessionHas('toast', fn (array $toast): bool => $toast['type'] === 'warning');
 
-        $this->actingAs($admin)->put(route('admin.plans.update', $plan), planPayload([
-            'name' => $plan->name,
-            'slug' => $plan->slug,
-            'price' => '99.00',
-        ]))->assertSessionHas('toast', fn (array $toast): bool => $toast['type'] === 'warning');
-
-        $this->assertDatabaseHas('plans', ['id' => $plan->id, 'price_minor' => 2900]);
-        $this->assertDatabaseHas('subscriptions', ['plan_id' => $plan->id, 'snapshot' => '{"price_minor":2900}']);
-    } finally {
-        Schema::dropIfExists('subscriptions');
-    }
+    $this->assertDatabaseHas('plans', ['id' => $plan->id, 'price_minor' => 2900]);
+    $this->assertDatabaseHas('subscriptions', ['id' => $subscription->id, 'plan_id' => $plan->id]);
 });
 
 test('historical payment references block hard deletion', function () {
@@ -310,6 +307,7 @@ function planPayload(array $overrides = []): array
         'chatbots_limit' => 1,
         'knowledge_bases_limit' => 1,
         'knowledge_sources_limit' => 25,
+        'team_members_limit' => 0,
         'storage_mb_limit' => 0,
     ], $overrides);
 }

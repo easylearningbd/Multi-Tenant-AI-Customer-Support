@@ -20,6 +20,7 @@ final class Plan extends Model
         'chatbots_limit' => 'Chatbots',
         'knowledge_bases_limit' => 'Knowledge bases',
         'knowledge_sources_limit' => 'Knowledge sources',
+        'team_members_limit' => 'Team members',
         'storage_mb_limit' => 'Storage MB',
     ];
 
@@ -110,5 +111,22 @@ final class Plan extends Model
         return $this->is_active
             && ! $this->custom_pricing
             && $this->interval->isRecurring();
+    }
+
+    /** @return array<string, mixed> */
+    public function subscriptionSnapshot(): array
+    {
+        return [
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'price_minor' => $this->price_minor,
+            'currency' => $this->currency,
+            'interval' => $this->interval->value,
+            'trial_days' => $this->trial_days,
+            'features' => array_values($this->features ?? []),
+            'limits' => collect(array_keys(self::LIMITS))
+                ->mapWithKeys(fn (string $key): array => [$key => $this->limitFor($key)])
+                ->all(),
+        ];
     }
 }

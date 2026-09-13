@@ -1,7 +1,16 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Models\Plan;
 use App\Models\User;
+
+beforeEach(function () {
+    Plan::factory()->trial()->create([
+        'slug' => config('billing.default_trial_plan_slug'),
+        'is_active' => true,
+        'trial_days' => 14,
+    ]);
+});
 
 test('subscriber registration screen can be rendered', function () {
     $response = $this->get('/register');
@@ -22,6 +31,7 @@ test('guests can register a subscriber account', function () {
     $this->assertAuthenticatedAs($user);
     $response->assertRedirect(route('dashboard', absolute: false));
     expect($user->role)->toBe(UserRole::USER);
+    expect($user->subscriptions()->count())->toBe(1);
 });
 
 test('public registration cannot assign the admin role', function () {
@@ -38,6 +48,7 @@ test('public registration cannot assign the admin role', function () {
     $response->assertRedirect('/dashboard');
     $this->assertAuthenticatedAs($user);
     expect($user->role)->toBe(UserRole::USER);
+    expect($user->subscriptions()->count())->toBe(1);
     $this->assertDatabaseMissing('users', [
         'email' => 'malicious@example.com',
         'role' => UserRole::ADMIN->value,

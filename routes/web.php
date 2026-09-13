@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubscriberDashboardController;
 use App\Http\Controllers\SupportTicketAttachmentController;
@@ -45,6 +46,8 @@ Route::get('/dashboard', SubscriberDashboardController::class)
     ->name('dashboard');
 
 Route::middleware(['auth', 'role:user'])->group(function () {
+    Route::get('/billing', BillingController::class)->name('billing.index');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
