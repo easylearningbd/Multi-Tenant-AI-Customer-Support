@@ -26,6 +26,7 @@ final class SupportTicket extends Model
         'last_activity_at',
         'resolved_at',
         'closed_at',
+        'archived_at',
     ];
 
     protected function casts(): array
@@ -36,6 +37,7 @@ final class SupportTicket extends Model
             'last_activity_at' => 'datetime',
             'resolved_at' => 'datetime',
             'closed_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -52,6 +54,16 @@ final class SupportTicket extends Model
     public function scopeOwnedBy(Builder $query, User $subscriber): Builder
     {
         return $query->where('requester_id', $subscriber->id);
+    }
+
+    public function scopeNotArchived(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->whereNotNull('archived_at');
     }
 
     /** @return BelongsTo<User, $this> */

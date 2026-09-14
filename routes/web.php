@@ -5,6 +5,10 @@ use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthe
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\Admin\SupportTicketAttachmentController as AdminSupportTicketAttachmentController;
+use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
+use App\Http\Controllers\Admin\SupportTicketReplyController as AdminSupportTicketReplyController;
+use App\Http\Controllers\Admin\SupportTicketStatusController as AdminSupportTicketStatusController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BankTransferPaymentController;
 use App\Http\Controllers\BillingController;
@@ -36,6 +40,7 @@ Route::bind('subscriberTicket', function (string $value): SupportTicket {
 
     return SupportTicket::query()
         ->ownedBy($actor)
+        ->notArchived()
         ->where('reference', $value)
         ->firstOrFail();
 });
@@ -123,6 +128,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::patch('plans/{plan}/status', [AdminPlanController::class, 'updateStatus'])->name('plans.status.update');
         Route::resource('plans', AdminPlanController::class);
+
+        Route::get('support-tickets', [AdminSupportTicketController::class, 'index'])->name('support-tickets.index');
+        Route::get('support-tickets/{adminTicket}', [AdminSupportTicketController::class, 'show'])->name('support-tickets.show');
+        Route::post('support-tickets/{adminTicket}/replies', [AdminSupportTicketReplyController::class, 'store'])
+            ->middleware('throttle:support-ticket-reply')
+            ->name('support-tickets.replies.store');
+        Route::patch('support-tickets/{adminTicket}/status', AdminSupportTicketStatusController::class)->name('support-tickets.status.update');
+        Route::delete('support-tickets/{adminTicket}', [AdminSupportTicketController::class, 'archive'])->name('support-tickets.archive');
+        Route::get('support-tickets/{adminTicket}/attachments/{attachment}', AdminSupportTicketAttachmentController::class)
+            ->whereNumber('attachment')
+            ->name('support-tickets.attachments.download');
 
         Route::post('logout', [AdminAuthenticatedSessionController::class, 'destroy'])
             ->name('logout');

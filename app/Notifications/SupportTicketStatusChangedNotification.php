@@ -2,21 +2,20 @@
 
 namespace App\Notifications;
 
+use App\Enums\SupportTicketStatus;
 use App\Models\SupportTicket;
-use App\Models\SupportTicketMessage;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Str;
 
-final class SupportTicketAdminReplied extends Notification implements ShouldQueue
+final class SupportTicketStatusChangedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(
         private readonly SupportTicket $ticket,
-        private readonly SupportTicketMessage $message,
+        private readonly SupportTicketStatus $previousStatus,
         private readonly User $admin,
     ) {
         $this->afterCommit();
@@ -33,11 +32,12 @@ final class SupportTicketAdminReplied extends Notification implements ShouldQueu
     public function toArray(object $notifiable): array
     {
         return [
-            'activity' => 'support_ticket_admin_replied',
+            'activity' => 'support_ticket_status_changed',
             'ticket_id' => $this->ticket->id,
             'reference' => $this->ticket->reference,
             'subject' => $this->ticket->subject,
-            'reply_preview' => Str::limit($this->message->body, 160),
+            'previous_status' => $this->previousStatus->value,
+            'status' => $this->ticket->status->value,
             'staff_name' => $this->admin->name,
             'url' => route('support-tickets.show', $this->ticket),
         ];

@@ -18,6 +18,7 @@ final class SupportTicketMessage extends Model
         'support_ticket_id',
         'sender_id',
         'sender_type',
+        'submission_token',
         'body',
     ];
 
