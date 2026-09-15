@@ -126,4 +126,16 @@ final class Payment extends Model
     {
         return $this->currency.' '.DecimalMoney::fromMinor($this->submitted_amount_minor);
     }
+
+    public function hasAmountMismatch(): bool
+    {
+        return $this->expected_amount_minor !== $this->submitted_amount_minor;
+    }
+
+    public function reviewNote(): ?string
+    {
+        $note = $this->metadata['admin_review_note'] ?? null;
+
+        return is_string($note) && trim($note) !== '' ? $note : null;
+    }
 }

@@ -3,6 +3,8 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Admin\PaymentProofController as AdminPaymentProofController;
 use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\SupportTicketAttachmentController as AdminSupportTicketAttachmentController;
@@ -128,6 +130,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::patch('plans/{plan}/status', [AdminPlanController::class, 'updateStatus'])->name('plans.status.update');
         Route::resource('plans', AdminPlanController::class);
+
+        Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+        Route::get('payments/{payment}', [AdminPaymentController::class, 'show'])->name('payments.show');
+        Route::get('payments/{payment}/proof', AdminPaymentProofController::class)->name('payments.proof.download');
+        Route::post('payments/{payment}/approve', [AdminPaymentController::class, 'approve'])->name('payments.approve');
+        Route::post('payments/{payment}/reject', [AdminPaymentController::class, 'reject'])->name('payments.reject');
 
         Route::get('support-tickets', [AdminSupportTicketController::class, 'index'])->name('support-tickets.index');
         Route::get('support-tickets/{adminTicket}', [AdminSupportTicketController::class, 'show'])->name('support-tickets.show');

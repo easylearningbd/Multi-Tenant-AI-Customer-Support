@@ -1376,6 +1376,240 @@ body.admin-shell {
     }
 }
 
+/* Admin payment review */
+.nd-payment-toolbar {
+    display: grid;
+    grid-template-columns: minmax(250px, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.nd-payment-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.nd-payment-filters .form-select,
+.nd-payment-filters .form-control {
+    width: auto;
+    min-width: 145px;
+}
+
+.nd-payment-filters > label,
+.nd-payment-filters > span {
+    color: var(--nd-muted);
+    font-size: 0.72rem;
+}
+
+.nd-payment-page-size {
+    min-width: 75px !important;
+}
+
+.nd-payments-table .nd-payment-reference,
+.nd-payments-table .nd-payment-customer {
+    display: block;
+    color: var(--nd-navy);
+    font-weight: 700;
+}
+
+.nd-payments-table td small {
+    display: block;
+    margin-top: 0.18rem;
+    color: var(--nd-muted);
+    font-size: 0.64rem;
+}
+
+.nd-payment-method {
+    display: inline-flex;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    background: #e9edf1;
+    color: #687487;
+    font-size: 0.67rem;
+    font-weight: 700;
+}
+
+.nd-status-danger {
+    background: var(--nd-danger-soft);
+    color: var(--nd-danger);
+}
+
+.nd-payment-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1.6rem 0;
+}
+
+.nd-payment-detail-header h1 {
+    max-width: 75vw;
+    margin: 0 0 0.45rem;
+    overflow-wrap: anywhere;
+    color: var(--nd-navy);
+    font-size: clamp(1.25rem, 2vw, 1.65rem);
+}
+
+.nd-payment-warning {
+    display: flex;
+    gap: 0.8rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding: 0.95rem 1rem;
+    border: 1px solid #f2d9a9;
+    border-radius: 12px;
+    background: var(--nd-warning-soft);
+    color: #9f6500;
+}
+
+.nd-payment-warning i { font-size: 1.25rem; }
+.nd-payment-warning strong,
+.nd-payment-warning span { display: block; }
+.nd-payment-warning span { margin-top: 0.15rem; font-size: 0.75rem; }
+
+.nd-payment-detail-card .card-body,
+.nd-payment-review-card .card-body { padding: 1.5rem; }
+
+.nd-payment-detail-card h2,
+.nd-payment-review-card h2 {
+    margin: 0 0 1.2rem;
+    color: var(--nd-navy);
+    font-size: 1.05rem;
+}
+
+.nd-payment-detail-card h3 {
+    margin: 1.1rem 0 0.7rem;
+    color: var(--nd-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.nd-payment-data-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.2rem 1.75rem;
+    margin: 0;
+}
+
+.nd-payment-data-grid > div,
+.nd-payment-data-list > div,
+.nd-reviewed-summary dl > div {
+    min-width: 0;
+}
+
+.nd-payment-data-wide { grid-column: 1 / -1; }
+
+.nd-payment-data-grid dt,
+.nd-payment-data-list dt,
+.nd-reviewed-summary dt {
+    margin-bottom: 0.25rem;
+    color: #94a0b1;
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.nd-payment-data-grid dd,
+.nd-payment-data-list dd,
+.nd-reviewed-summary dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--nd-navy);
+    font-size: 0.8rem;
+    font-weight: 650;
+}
+
+.nd-payment-data-list { margin: 0; }
+.nd-payment-data-list > div,
+.nd-reviewed-summary dl > div { padding: 0.7rem 0; border-bottom: 1px solid var(--nd-border); }
+.nd-payment-data-list > div:last-child,
+.nd-reviewed-summary dl > div:last-child { border-bottom: 0; }
+
+.nd-payment-feature-list {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: #66748a;
+    font-size: 0.75rem;
+}
+
+.nd-payment-feature-list i { margin-right: 0.35rem; color: var(--nd-success); }
+.nd-payment-limit-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
+.nd-payment-limit-list span { padding: 0.3rem 0.55rem; border-radius: 8px; background: #eef1f4; color: #687487; font-size: 0.65rem; }
+.nd-payment-empty-copy { margin: 0; color: var(--nd-muted); font-size: 0.76rem; }
+
+.nd-payment-proof {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.nd-payment-proof-icon {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--nd-primary-soft);
+    color: var(--nd-primary);
+    font-size: 1.15rem;
+}
+
+.nd-payment-proof > div { min-width: 0; flex: 1; }
+.nd-payment-proof strong,
+.nd-payment-proof span { display: block; overflow-wrap: anywhere; }
+.nd-payment-proof strong { color: var(--nd-navy); font-size: 0.8rem; }
+.nd-payment-proof span { color: var(--nd-muted); font-size: 0.68rem; }
+
+.nd-payment-review-card { position: sticky; top: 96px; }
+.nd-review-summary { display: grid; gap: 0.65rem; margin-bottom: 1rem; }
+.nd-review-summary > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.75rem; border: 1px solid var(--nd-border); border-radius: 10px; }
+.nd-review-summary span { color: var(--nd-muted); font-size: 0.72rem; }
+.nd-review-summary strong { color: var(--nd-navy); font-size: 0.76rem; }
+
+.nd-btn-success {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-color: #20bd6b;
+    background: #20bd6b;
+    color: #fff;
+}
+.nd-btn-success:hover,
+.nd-btn-success:focus-visible { border-color: #179d57; background: #179d57; color: #fff; }
+.nd-btn-danger-outline { border: 1px solid #f0bfc4; color: #d94854; }
+.nd-btn-danger-outline:hover,
+.nd-btn-danger-outline:focus-visible { border-color: #d94854; background: var(--nd-danger-soft); color: #c53542; }
+.nd-reviewed-summary > .nd-status-badge { margin-bottom: 0.65rem; }
+.nd-reviewed-summary dl { margin: 0; }
+.nd-mismatch-check { padding: 0.85rem 0.85rem 0.85rem 2.4rem; border: 1px solid #f2d9a9; border-radius: 10px; background: var(--nd-warning-soft); }
+
+@media (max-width: 1199.98px) {
+    .nd-payment-review-card { position: static; }
+}
+
+@media (max-width: 767.98px) {
+    .nd-payment-detail-header,
+    .nd-payment-proof { align-items: stretch; flex-direction: column; }
+    .nd-payment-detail-header .btn,
+    .nd-payment-proof .btn { width: 100%; }
+    .nd-payment-data-grid { grid-template-columns: 1fr; }
+    .nd-payment-data-wide { grid-column: auto; }
+    .nd-payment-filters { align-items: stretch; flex-direction: column; }
+    .nd-payment-filters .form-select,
+    .nd-payment-filters .form-control { width: 100%; }
+    .nd-payments-table tbody td:first-child::before { display: block; }
+}
+
 /* Admin support tickets */
 .nd-ticket-toolbar,
 .nd-ticket-filters,

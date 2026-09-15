@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 final class SubscriberDashboardData
 {
+    public function __construct(private readonly CurrentSubscriptionResolver $subscriptions) {}
+
     /**
      * Build a tenant-safe dashboard payload.
      *
@@ -19,6 +21,9 @@ final class SubscriberDashboardData
      */
     public function for(User $subscriber): array
     {
+        $subscription = $this->subscriptions->for($subscriber);
+        $hasActiveSubscription = $subscription?->grantsEntitlements() === true;
+        $chatbotLimit = $hasActiveSubscription ? $subscription->limitFor('chatbots_limit') : null;
         $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
         $chartDays = collect(range(13, 1))
             ->map(fn (int $daysAgo): CarbonImmutable => $today->subDays($daysAgo))
@@ -33,7 +38,7 @@ final class SubscriberDashboardData
             'workspaceName' => $workspaceLabel
                 ? __(':name’s workspace', ['name' => $workspaceLabel])
                 : __('Personal workspace'),
-            'planName' => __('No active plan'),
+            'planName' => $hasActiveSubscription ? $subscription->planName() : __('No active plan'),
             'conversations' => [
                 'total' => 0,
                 'open' => 0,
@@ -48,8 +53,10 @@ final class SubscriberDashboardData
             'chatbots' => [
                 'active' => 0,
                 'used' => 0,
-                'limit' => null,
-                'limitLabel' => __('No active plan'),
+                'limit' => $chatbotLimit,
+                'limitLabel' => $chatbotLimit === 0
+                    ? __('Unlimited')
+                    : ($chatbotLimit === null ? __('No active plan') : number_format($chatbotLimit)),
                 'percentage' => 0,
             ],
             'knowledge' => [
@@ -72,7 +79,7 @@ final class SubscriberDashboardData
             ],
             'connectedSources' => [
                 'workspace' => false,
-                'subscription' => false,
+                'subscription' => $hasActiveSubscription,
                 'bots' => false,
                 'conversations' => false,
                 'knowledge' => false,

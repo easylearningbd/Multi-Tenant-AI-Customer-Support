@@ -21,14 +21,21 @@ final class BankTransferPaymentStatusNotification extends Notification
     /** @return array<string, int|string|null> */
     public function toArray(object $notifiable): array
     {
+        $payment = $this->payment->loadMissing('subscription:id,current_period_ends_at');
+
         return [
-            'activity' => 'bank_transfer_payment_'.$this->payment->status->value,
-            'payment_id' => $this->payment->id,
-            'reference' => $this->payment->reference,
-            'plan_name' => $this->payment->plan_name_snapshot,
-            'status' => $this->payment->status->value,
-            'rejection_reason' => $this->payment->status === PaymentStatus::REJECTED
-                ? $this->payment->rejection_reason
+            'activity' => 'bank_transfer_payment_'.$payment->status->value,
+            'payment_id' => $payment->id,
+            'reference' => $payment->reference,
+            'plan_name' => $payment->plan_name_snapshot,
+            'status' => $payment->status->value,
+            'amount_minor' => $payment->expected_amount_minor,
+            'currency' => $payment->currency,
+            'activated_at' => $payment->paid_at?->toIso8601String(),
+            'access_until' => $payment->subscription?->current_period_ends_at?->toIso8601String(),
+            'billing_url' => route('billing.index'),
+            'rejection_reason' => $payment->status === PaymentStatus::REJECTED
+                ? $payment->rejection_reason
                 : null,
         ];
     }

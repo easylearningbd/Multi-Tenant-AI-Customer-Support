@@ -8,6 +8,31 @@ use App\Models\User;
 
 final class PaymentPolicy
 {
+    public function manageAny(User $user): bool
+    {
+        return $user->role === UserRole::ADMIN;
+    }
+
+    public function manage(User $user, Payment $payment): bool
+    {
+        return $user->role === UserRole::ADMIN;
+    }
+
+    public function approve(User $user, Payment $payment): bool
+    {
+        return $this->manage($user, $payment);
+    }
+
+    public function reject(User $user, Payment $payment): bool
+    {
+        return $this->manage($user, $payment);
+    }
+
+    public function downloadProofAsAdmin(User $user, Payment $payment): bool
+    {
+        return $this->manage($user, $payment);
+    }
+
     public function create(User $user): bool
     {
         return $user->role === UserRole::USER && $user->isBillingOwner();

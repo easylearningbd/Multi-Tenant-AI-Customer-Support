@@ -80,6 +80,15 @@ function makePendingBankPayment(User $subscriber, Plan $plan, array $overrides =
         'description' => $payment->plan_name_snapshot.' subscription',
     ]);
 
+    $payment->attachments()->create([
+        'type' => PaymentAttachmentType::PAYMENT_PROOF,
+        'disk' => 'local',
+        'path' => 'payment-proofs/'.$subscriber->id.'/'.$payment->reference.'.pdf',
+        'original_name' => 'bank-receipt.pdf',
+        'mime_type' => 'application/pdf',
+        'size' => 5,
+    ]);
+
     return $payment;
 }
 
@@ -339,15 +348,8 @@ test('payment details and private proof are owner scoped and missing objects ret
     $other = User::factory()->subscriber()->create();
     $plan = Plan::factory()->create();
     $payment = makePendingBankPayment($owner, $plan, ['notes' => '<script>unsafe</script>']);
-    Storage::disk('local')->put('payment-proofs/'.$owner->id.'/proof.pdf', 'proof');
-    $proof = $payment->attachments()->create([
-        'type' => PaymentAttachmentType::PAYMENT_PROOF,
-        'disk' => 'local',
-        'path' => 'payment-proofs/'.$owner->id.'/proof.pdf',
-        'original_name' => 'bank-receipt.pdf',
-        'mime_type' => 'application/pdf',
-        'size' => 5,
-    ]);
+    $proof = $payment->proof;
+    Storage::disk('local')->put($proof->path, 'proof');
 
     $this->actingAs($owner)->get(route('billing.payments.show', $payment))
         ->assertOk()
