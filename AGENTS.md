@@ -573,3 +573,63 @@ Stop and ask for direction when a missing decision materially changes architectu
 
 For small reversible choices, follow existing repository patterns and document the assumption.
 
+
+## 🚨 DATABASE SAFETY RULES — NEVER DESTROY EXISTING DATA
+
+This project uses **MySQL** with real, persistent data. Losing data is a
+critical failure. Follow these rules on EVERY task, without exception.
+
+### Absolutely forbidden commands
+Never run any of these, and never put them in a script, task, or CI step:
+
+- `php artisan migrate:fresh`
+- `php artisan migrate:refresh`
+- `php artisan migrate:reset`
+- `php artisan db:wipe`
+- `php artisan migrate --seed` (or any `db:seed` that truncates tables)
+- Any raw SQL containing `DROP TABLE`, `DROP DATABASE`, `TRUNCATE`,
+  or `DELETE FROM <table>` without a specific `WHERE` clause.
+
+If a task seems to require any of the above, STOP and ask me first.
+Do not "just reset the DB to make it work."
+
+### The ONLY allowed way to change the schema
+- Add a **new migration file** for every schema change
+  (`php artisan make:migration ...`). Never edit an already-run migration.
+- Apply changes with **`php artisan migrate` only** (forward migrations).
+- To add a column, create a new migration with `Schema::table(...)`.
+  Never drop and recreate a table to add or change a column.
+- Every migration's `down()` method must be a true, safe reverse of `up()`.
+  A migration's `up()` must NEVER drop or truncate a table that holds data.
+- Preserve existing data. If a column type must change, migrate the data
+  across in the same migration — do not delete and recreate.
+
+### Seeders and factories
+- Seeders must be **idempotent**: use `updateOrCreate()` / `firstOrCreate()`.
+- Seeders must NEVER call `truncate()` or `delete()` on existing tables.
+- Never run seeders automatically as part of a build, fix, or feature task.
+  Only run a seeder when I explicitly ask for that specific seeder.
+
+### Tests
+- Tests must NEVER run against the development or production database.
+- Use a separate test connection (e.g. an in-memory SQLite or a dedicated
+  `*_testing` database) configured in `phpunit.xml` / `.env.testing`.
+- The `RefreshDatabase` / `DatabaseMigrations` traits are allowed ONLY on
+  the test connection, never on the default MySQL connection.
+
+### Multi-tenant safety
+- This is a multi-tenant app. Never run a query that touches all tenants'
+  rows at once. Scope every write and delete to a single tenant.
+- Never delete tenant data as a side effect of a migration or refactor.
+
+### Before making any change that touches the database
+1. Explain in plain language what schema/data change you will make.
+2. Confirm it only ADDS or MODIFIES structure — never drops data.
+3. If you are unsure whether a change is destructive, treat it as
+   destructive and ask me before running it.
+
+### If data loss is even possible
+Warn me clearly BEFORE acting, describe exactly what could be lost, and wait
+for my explicit "yes" before proceeding.
+
+
