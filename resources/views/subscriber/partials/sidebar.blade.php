@@ -4,7 +4,7 @@
     $navigation = [
         ['label' => __('Overview'), 'icon' => 'iconoir-view-grid', 'route' => 'dashboard'],
         ['label' => __('Live visitors'), 'icon' => 'iconoir-antenna-signal', 'route' => 'live-visitors.index'],
-        ['label' => __('Bots'), 'icon' => 'iconoir-brain-electricity', 'route' => 'bots.index'],
+        ['label' => __('Bots'), 'icon' => 'iconoir-brain-electricity', 'route' => 'bots.index', 'patterns' => ['bots.*']],
         ['label' => __('Conversations'), 'icon' => 'iconoir-chat-bubble', 'route' => 'conversations.index'],
         ['label' => __('Team'), 'icon' => 'iconoir-community', 'route' => 'team.index'],
         ['label' => __('Billing'), 'icon' => 'iconoir-credit-card', 'route' => 'billing.index'],

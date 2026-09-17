@@ -224,7 +224,8 @@ test('available plans are active ordered database records with safe checkout sta
         ->assertOk()
         ->assertSeeInOrder([$first->name, $custom->name, $later->name])
         ->assertSee('USD 19.00')
-        ->assertSee('Bank transfer is not available for this plan.')
+        ->assertSee(route('billing.payment.create', $first), escape: false)
+        ->assertSee('Pay securely by bank transfer.')
         ->assertSee('Contact sales')
         ->assertDontSee($inactive->name);
 

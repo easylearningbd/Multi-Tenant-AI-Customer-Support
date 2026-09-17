@@ -19,7 +19,9 @@
     </div>
     <div class="nd-sub-topbar-actions">
         <button class="nd-sub-notification" type="button" disabled aria-label="{{ __('Notifications are not available yet') }}" title="{{ __('Notifications are not available yet') }}"><i class="iconoir-bell" aria-hidden="true"></i></button>
-        @if (request()->routeIs('dashboard'))
+        @hasSection('header-actions')
+            @yield('header-actions')
+        @elseif (request()->routeIs('dashboard'))
             @if ($botRoute)
                 <a class="nd-sub-manage-bots" href="{{ route($botRoute) }}">{{ __('Manage bots') }}<i class="iconoir-brain-electricity" aria-hidden="true"></i></a>
             @else

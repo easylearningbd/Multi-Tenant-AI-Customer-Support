@@ -2,14 +2,30 @@
 
 namespace App\Providers;
 
+use App\Contracts\ChatCompletionProviderInterface;
+use App\Contracts\EmbeddingProviderInterface;
+use App\Contracts\KnowledgeRetrieverInterface;
+use App\Contracts\RagPromptBuilderInterface;
+use App\Contracts\VectorStoreInterface;
+use App\Models\Bot;
+use App\Models\Conversation;
+use App\Models\KnowledgeSource;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\SupportTicket;
 use App\Models\User;
+use App\Policies\BotPolicy;
+use App\Policies\ConversationPolicy;
+use App\Policies\KnowledgeSourcePolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
 use App\Policies\SupportTicketPolicy;
 use App\Policies\UserPolicy;
+use App\Services\KnowledgeRetriever;
+use App\Services\MySqlVectorStore;
+use App\Services\OpenAIEmbeddingService;
+use App\Services\OpenAIResponseService;
+use App\Services\RagPromptBuilder;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +40,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(VectorStoreInterface::class, MySqlVectorStore::class);
+        $this->app->bind(EmbeddingProviderInterface::class, OpenAIEmbeddingService::class);
+        $this->app->bind(KnowledgeRetrieverInterface::class, KnowledgeRetriever::class);
+        $this->app->bind(RagPromptBuilderInterface::class, RagPromptBuilder::class);
+        $this->app->bind(ChatCompletionProviderInterface::class, OpenAIResponseService::class);
     }
 
     /**
@@ -32,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Bot::class, BotPolicy::class);
+        Gate::policy(Conversation::class, ConversationPolicy::class);
+        Gate::policy(KnowledgeSource::class, KnowledgeSourcePolicy::class);
         Gate::policy(Plan::class, PlanPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
         Gate::policy(SupportTicket::class, SupportTicketPolicy::class);
@@ -66,5 +89,16 @@ class AppServiceProvider extends ServiceProvider
                 'message' => __('Please wait before submitting another bank-transfer payment.'),
             ]),
         ));
+
+        RateLimiter::for('knowledge-training', fn (Request $request): Limit => Limit::perMinute(10)
+            ->by('knowledge-training:'.$request->user()?->id));
+
+        RateLimiter::for('rag-message', function (Request $request): Limit {
+            $routeBot = $request->route('subscriberBot');
+            $botKey = $routeBot instanceof Bot ? $routeBot->id : (string) $routeBot;
+
+            return Limit::perMinute(max(1, (int) config('neuraldesk.rag.requests_per_minute', 12)))
+                ->by('rag-message:'.$request->user()?->id.':'.$botKey);
+        });
     }
 }

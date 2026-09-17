@@ -24,6 +24,11 @@ final class SubscriberDashboardData
         $subscription = $this->subscriptions->for($subscriber);
         $hasActiveSubscription = $subscription?->grantsEntitlements() === true;
         $chatbotLimit = $hasActiveSubscription ? $subscription->limitFor('chatbots_limit') : null;
+        $chatbotUsage = $subscriber->bots()->count();
+        $activeChatbots = $subscriber->bots()->where('is_active', true)->count();
+        $chatbotPercentage = $chatbotLimit && $chatbotLimit > 0
+            ? min(100, (int) round(($chatbotUsage / $chatbotLimit) * 100))
+            : 0;
         $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
         $chartDays = collect(range(13, 1))
             ->map(fn (int $daysAgo): CarbonImmutable => $today->subDays($daysAgo))
@@ -51,13 +56,13 @@ final class SubscriberDashboardData
                 'percentage' => 0,
             ],
             'chatbots' => [
-                'active' => 0,
-                'used' => 0,
+                'active' => $activeChatbots,
+                'used' => $chatbotUsage,
                 'limit' => $chatbotLimit,
                 'limitLabel' => $chatbotLimit === 0
                     ? __('Unlimited')
                     : ($chatbotLimit === null ? __('No active plan') : number_format($chatbotLimit)),
-                'percentage' => 0,
+                'percentage' => $chatbotPercentage,
             ],
             'knowledge' => [
                 'bases' => 0,
@@ -80,7 +85,7 @@ final class SubscriberDashboardData
             'connectedSources' => [
                 'workspace' => false,
                 'subscription' => $hasActiveSubscription,
-                'bots' => false,
+                'bots' => true,
                 'conversations' => false,
                 'knowledge' => false,
                 'usage' => false,

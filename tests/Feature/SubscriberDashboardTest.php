@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Bot;
 use App\Models\Plan;
 use App\Models\User;
 
@@ -66,7 +67,7 @@ test('empty dashboard renders safe zero metrics without division errors', functi
         });
 });
 
-test('unfinished subscriber navigation has no broken module links', function () {
+test('subscriber navigation links to bots while unfinished modules remain disabled', function () {
     $subscriber = User::factory()->subscriber()->create();
 
     $this->actingAs($subscriber)
@@ -77,8 +78,23 @@ test('unfinished subscriber navigation has no broken module links', function () 
         ->assertSee('Conversations')
         ->assertSee('Team')
         ->assertSee('Billing')
-        ->assertDontSee('href="http://localhost:8000/bots"', escape: false)
+        ->assertSee('href="'.route('bots.index').'"', escape: false)
         ->assertDontSee('href="http://localhost:8000/conversations"', escape: false);
+});
+
+test('dashboard chatbot metrics are owner scoped', function () {
+    $subscriber = User::factory()->subscriber()->create();
+    $otherSubscriber = User::factory()->subscriber()->create();
+
+    Bot::factory()->for($subscriber)->count(2)->create();
+    Bot::factory()->for($subscriber)->inactive()->create();
+    Bot::factory()->for($otherSubscriber)->count(4)->create();
+
+    $response = $this->actingAs($subscriber)->get(route('dashboard'))->assertOk();
+    $metrics = $response->viewData('dashboard')['chatbots'];
+
+    expect($metrics['used'])->toBe(3)
+        ->and($metrics['active'])->toBe(2);
 });
 
 test('dashboard uses the existing post-only subscriber logout and session is invalidated', function () {

@@ -117,6 +117,30 @@ class User extends Authenticatable
         return $this->hasMany(Invoice::class);
     }
 
+    /** @return HasMany<Bot, $this> */
+    public function bots(): HasMany
+    {
+        return $this->hasMany(Bot::class);
+    }
+
+    /** @return HasMany<KnowledgeSource, $this> */
+    public function knowledgeSources(): HasMany
+    {
+        return $this->hasMany(KnowledgeSource::class);
+    }
+
+    /** @return HasMany<Conversation, $this> */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    /** @return HasMany<UsageLedger, $this> */
+    public function usageLedgers(): HasMany
+    {
+        return $this->hasMany(UsageLedger::class);
+    }
+
     public function isBillingOwner(): bool
     {
         return $this->role === UserRole::USER;

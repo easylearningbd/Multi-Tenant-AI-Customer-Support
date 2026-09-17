@@ -14,12 +14,19 @@ use App\Http\Controllers\Admin\SupportTicketStatusController as AdminSupportTick
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BankTransferPaymentController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\BotController;
+use App\Http\Controllers\BotSettingsController;
+use App\Http\Controllers\BotTrainingController;
 use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RagConversationController;
 use App\Http\Controllers\SubscriberDashboardController;
 use App\Http\Controllers\SupportTicketAttachmentController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SupportTicketReplyController;
+use App\Models\Bot;
+use App\Models\Conversation;
+use App\Models\KnowledgeSource;
 use App\Models\Payment;
 use App\Models\SupportTicket;
 use App\Models\User;
@@ -63,6 +70,48 @@ Route::bind('subscriberPayment', function (string $value): Payment {
         ->firstOrFail();
 });
 
+Route::bind('subscriberBot', function (string $value): Bot {
+    $actor = request()->user();
+
+    if (! $actor instanceof User || $actor->role !== UserRole::USER) {
+        $bot = new Bot;
+        $bot->public_id = $value;
+
+        return $bot;
+    }
+
+    return Bot::query()
+        ->ownedBy($actor)
+        ->where('public_id', $value)
+        ->firstOrFail();
+});
+
+Route::bind('subscriberSource', function (string $value): KnowledgeSource {
+    $actor = request()->user();
+
+    if (! $actor instanceof User || $actor->role !== UserRole::USER) {
+        $source = new KnowledgeSource;
+        $source->uuid = $value;
+
+        return $source;
+    }
+
+    return KnowledgeSource::query()->ownedBy($actor)->where('uuid', $value)->firstOrFail();
+});
+
+Route::bind('subscriberConversation', function (string $value): Conversation {
+    $actor = request()->user();
+
+    if (! $actor instanceof User || $actor->role !== UserRole::USER) {
+        $conversation = new Conversation;
+        $conversation->uuid = $value;
+
+        return $conversation;
+    }
+
+    return Conversation::query()->ownedBy($actor)->where('uuid', $value)->firstOrFail();
+});
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -72,6 +121,27 @@ Route::get('/dashboard', SubscriberDashboardController::class)
     ->name('dashboard');
 
 Route::middleware(['auth', 'role:user'])->group(function () {
+    Route::get('/bots', [BotController::class, 'index'])->name('bots.index');
+    Route::post('/bots', [BotController::class, 'store'])->name('bots.store');
+    Route::get('/bots/{subscriberBot}/setup', [BotController::class, 'setup'])->name('bots.setup');
+    Route::get('/bots/{subscriberBot}/settings', [BotSettingsController::class, 'edit'])->name('bots.settings.edit');
+    Route::put('/bots/{subscriberBot}/settings', [BotSettingsController::class, 'update'])->name('bots.settings.update');
+    Route::delete('/bots/{subscriberBot}', [BotSettingsController::class, 'destroy'])->name('bots.destroy');
+    Route::post('/bots/{subscriberBot}/rag/messages', [RagConversationController::class, 'store'])
+        ->middleware('throttle:rag-message')
+        ->name('bots.rag.messages.store');
+    Route::get('/bots/{subscriberBot}/rag/conversations/{subscriberConversation}', [RagConversationController::class, 'show'])
+        ->name('bots.rag.conversations.show');
+    Route::prefix('/bots/{subscriberBot}/training')->name('bots.training.')->middleware('throttle:knowledge-training')->group(function () {
+        Route::get('/', [BotTrainingController::class, 'index'])->withoutMiddleware('throttle:knowledge-training')->name('index');
+        Route::post('/text', [BotTrainingController::class, 'text'])->name('text.store');
+        Route::post('/files', [BotTrainingController::class, 'files'])->name('files.store');
+        Route::post('/website', [BotTrainingController::class, 'website'])->name('website.store');
+        Route::post('/retrain', [BotTrainingController::class, 'retrainAll'])->name('retrain-all');
+        Route::post('/sources/{subscriberSource}/retrain', [BotTrainingController::class, 'retrain'])->name('sources.retrain');
+        Route::delete('/sources/{subscriberSource}', [BotTrainingController::class, 'destroy'])->name('sources.destroy');
+    });
+
     Route::get('/billing', BillingController::class)->name('billing.index');
     Route::get('/billing/pay/{plan}', [BankTransferPaymentController::class, 'create'])
         ->whereNumber('plan')

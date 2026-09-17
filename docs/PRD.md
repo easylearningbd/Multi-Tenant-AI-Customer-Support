@@ -518,9 +518,9 @@ The prompt package should include:
 ### 10.7 Vector-search architecture
 
 - MySQL remains the system of record for sources, chunks, permissions, and version metadata.
-- Semantic vectors live behind a `VectorStore` interface.
-- Recommended production default: self-hosted Qdrant.
-- Development/test adapter may use a deterministic fake or local implementation.
+- Semantic vectors are stored as JSON in MySQL behind a `VectorStore` interface.
+- Exact cosine similarity is calculated in PHP after strict SQL tenant and bot filtering, using lazy batches and stored vector norms.
+- Development and tests use deterministic provider fakes while exercising the same MySQL adapter.
 - No business logic may depend directly on vendor-specific vector APIs.
 - Every vector payload must contain sufficient tenant and source filters.
 
@@ -737,7 +737,7 @@ All values are administrator-configurable. The implementation must not hard-code
 - Laravel queue workers and scheduler.
 - Laravel Reverb or an equivalent abstraction for real-time events.
 - Object storage through Laravel Filesystem, supporting local and S3-compatible targets.
-- Vector store through an internal adapter; Qdrant recommended for production.
+- MySQL vector storage through an internal adapter, with exact PHP cosine scoring after tenant and bot filtering.
 - OpenAI provider adapter for embeddings and chat responses.
 - Payment gateway adapters.
 - Mail and notification channels.
@@ -1022,7 +1022,7 @@ These must be decided before the affected implementation begins:
 
 - Exact Laravel/PHP versions and frontend stack.
 - Single-database tenancy versus database-per-tenant; this PRD assumes shared MySQL with strict row scoping.
-- Production vector store; Qdrant is the recommended self-hosted default.
+- Vector storage is decided: MySQL JSON vectors behind `VectorStore`, with exact PHP similarity scoring.
 - Redis and Laravel Reverb deployment choices.
 - OpenAI chat and embedding model allowlists, budgets, and regional/privacy requirements.
 - Exact definition of an AI credit/answer.
