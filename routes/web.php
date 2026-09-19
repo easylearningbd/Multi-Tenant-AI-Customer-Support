@@ -15,10 +15,14 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BankTransferPaymentController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BotController;
+use App\Http\Controllers\BotEmbedController;
 use App\Http\Controllers\BotSettingsController;
 use App\Http\Controllers\BotTrainingController;
 use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicWidgetApiController;
+use App\Http\Controllers\PublicWidgetAssetController;
+use App\Http\Controllers\PublicWidgetPageController;
 use App\Http\Controllers\RagConversationController;
 use App\Http\Controllers\SubscriberDashboardController;
 use App\Http\Controllers\SupportTicketAttachmentController;
@@ -36,6 +40,32 @@ Route::bind('subscriber', fn (string $value): User => User::query()
     ->subscribers()
     ->whereKey($value)
     ->firstOrFail());
+
+Route::get('/widgets/v1/{publicWidget}/loader.js', PublicWidgetAssetController::class)
+    ->whereUlid('publicWidget')
+    ->name('widgets.loader.show');
+Route::get('/widgets/v1/{publicWidget}/frame', [PublicWidgetPageController::class, 'frame'])
+    ->whereUlid('publicWidget')
+    ->name('widgets.frame.show');
+Route::get('/chat/{publicWidget}', [PublicWidgetPageController::class, 'hosted'])
+    ->whereUlid('publicWidget')
+    ->name('widgets.hosted.show');
+Route::get('/widgets/demo/{publicWidget}', [PublicWidgetPageController::class, 'demo'])
+    ->whereUlid('publicWidget')
+    ->name('widgets.demo.show');
+
+Route::prefix('api/widgets/v1/{publicWidget}')->whereUlid('publicWidget')->name('widgets.api.')->group(function () {
+    Route::post('sessions', [PublicWidgetApiController::class, 'bootstrap'])
+        ->middleware('throttle:widget-bootstrap')->name('sessions.store');
+    Route::post('prechat', [PublicWidgetApiController::class, 'prechat'])
+        ->middleware('throttle:widget-message')->name('prechat.store');
+    Route::post('messages', [PublicWidgetApiController::class, 'message'])
+        ->middleware('throttle:widget-message')->name('messages.store');
+    Route::get('conversations/{conversationUuid}', [PublicWidgetApiController::class, 'conversation'])
+        ->whereUuid('conversationUuid')->middleware('throttle:widget-poll')->name('conversations.show');
+    Route::post('handoff', [PublicWidgetApiController::class, 'handoff'])
+        ->middleware('throttle:widget-message')->name('handoff.store');
+});
 
 Route::bind('subscriberTicket', function (string $value): SupportTicket {
     $actor = request()->user();
@@ -126,6 +156,8 @@ Route::middleware(['auth', 'role:user'])->group(function () {
     Route::get('/bots/{subscriberBot}/setup', [BotController::class, 'setup'])->name('bots.setup');
     Route::get('/bots/{subscriberBot}/settings', [BotSettingsController::class, 'edit'])->name('bots.settings.edit');
     Route::put('/bots/{subscriberBot}/settings', [BotSettingsController::class, 'update'])->name('bots.settings.update');
+    Route::get('/bots/{subscriberBot}/embed', [BotEmbedController::class, 'edit'])->name('bots.embed.edit');
+    Route::put('/bots/{subscriberBot}/embed', [BotEmbedController::class, 'update'])->name('bots.embed.update');
     Route::delete('/bots/{subscriberBot}', [BotSettingsController::class, 'destroy'])->name('bots.destroy');
     Route::post('/bots/{subscriberBot}/rag/messages', [RagConversationController::class, 'store'])
         ->middleware('throttle:rag-message')

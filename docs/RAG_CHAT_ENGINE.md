@@ -1,6 +1,6 @@
 # RAG chat engine
 
-Phase 5 adds the authenticated, tenant-scoped RAG engine used by later widget and hosted-chat work. Public widget credentials and unauthenticated chat routes remain Phase 7 concerns.
+Phase 5 adds the tenant-scoped RAG engine. Phase 7 routes public widget and hosted-chat messages into this same queue, usage reservation, retrieval, grounding, citation, fallback, and handoff pipeline through scoped visitor sessions.
 
 ## Request flow
 

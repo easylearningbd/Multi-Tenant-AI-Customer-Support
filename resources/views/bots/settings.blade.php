@@ -7,7 +7,7 @@
 @section('header-actions')
     <a class="nd-sub-settings-action secondary" href="{{ route('bots.index') }}"><i class="iconoir-arrow-left" aria-hidden="true"></i>{{ __('Back') }}</a>
     <a class="nd-sub-settings-action secondary" href="{{ route('bots.training.index', $bot) }}"><i class="iconoir-book" aria-hidden="true"></i>{{ __('Train') }}</a>
-    <button class="nd-sub-settings-action secondary" type="button" disabled title="{{ __('Embed controls become available in Phase 6.') }}"><i class="iconoir-code" aria-hidden="true"></i>{{ __('Get embed code') }}</button>
+    <a class="nd-sub-settings-action secondary" href="{{ route('bots.embed.edit', $bot) }}"><i class="iconoir-code" aria-hidden="true"></i>{{ __('Get embed code') }}</a>
     <button class="nd-sub-settings-action primary" type="submit" form="bot-settings-form">{{ __('Save changes') }}<i class="iconoir-check" aria-hidden="true"></i></button>
 @endsection
 

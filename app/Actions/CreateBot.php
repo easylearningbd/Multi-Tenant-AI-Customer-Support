@@ -18,6 +18,7 @@ final class CreateBot
         private readonly PlanLimitService $limits,
         private readonly BotDefaults $defaults,
         private readonly CreateDefaultBotSettings $createDefaultSettings,
+        private readonly EnsureBotWidget $ensureBotWidget,
     ) {}
 
     public function handle(User $subscriber, string $name): Bot
@@ -50,7 +51,9 @@ final class CreateBot
 
             $this->createDefaultSettings->handle($bot);
 
-            return $bot->fresh(['setting']);
+            $this->ensureBotWidget->handle($bot);
+
+            return $bot->fresh(['setting', 'widget']);
         }, 3);
     }
 

@@ -26,7 +26,7 @@
                 <li class="complete"><span><i class="iconoir-check" aria-hidden="true"></i></span><div><strong>{{ __('Create bot identity') }}</strong><small>{{ __('Completed') }}</small></div></li>
                 <li><span>2</span><div><strong>{{ __('Configure behavior') }}</strong><small>{{ __('Settings are the next setup stage') }}</small></div></li>
                 <li><span>3</span><div><strong>{{ __('Add trusted knowledge') }}</strong><small>{{ __('Training is not available yet') }}</small></div></li>
-                <li><span>4</span><div><strong>{{ __('Publish and share') }}</strong><small>{{ __('Embed controls are not available yet') }}</small></div></li>
+                <li><span>4</span><div><strong>{{ __('Publish and share') }}</strong><small><a href="{{ route('bots.embed.edit', $bot) }}">{{ __('Configure embed code and appearance') }}</a></small></div></li>
             </ol>
             <a class="nd-sub-dark-button" href="{{ route('bots.index') }}">{{ __('Return to bots') }}</a>
         </section>

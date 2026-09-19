@@ -123,6 +123,12 @@ class User extends Authenticatable
         return $this->hasMany(Bot::class);
     }
 
+    /** @return HasMany<Widget, $this> */
+    public function widgets(): HasMany
+    {
+        return $this->hasMany(Widget::class);
+    }
+
     /** @return HasMany<KnowledgeSource, $this> */
     public function knowledgeSources(): HasMany
     {
@@ -133,6 +139,12 @@ class User extends Authenticatable
     public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
+    }
+
+    /** @return HasMany<VisitorSession, $this> */
+    public function visitorSessions(): HasMany
+    {
+        return $this->hasMany(VisitorSession::class);
     }
 
     /** @return HasMany<UsageLedger, $this> */

@@ -29,6 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 ? route('admin.dashboard')
                 : route('dashboard')
         );
+
+        $middleware->validateCsrfTokens(except: [
+            'api/widgets/v1/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

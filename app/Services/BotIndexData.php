@@ -20,7 +20,7 @@ final class BotIndexData
 
         /** @var LengthAwarePaginator $bots */
         $bots = $subscriber->bots()
-            ->withCount('knowledgeSources')
+            ->withCount(['knowledgeSources', 'widget'])
             ->latest('created_at')
             ->latest('id')
             ->paginate(12);

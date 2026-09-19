@@ -66,14 +66,14 @@
 
                         <dl class="nd-sub-bot-metrics">
                             <div><dt>{{ __('Sources') }}</dt><dd>{{ number_format($bot->knowledge_sources_count) }}</dd></div>
-                            <div><dt>{{ __('Widgets') }}</dt><dd>0</dd></div>
+                            <div><dt>{{ __('Widgets') }}</dt><dd>{{ number_format($bot->widget_count) }}</dd></div>
                             <div><dt>{{ __('Status') }}</dt><dd>{{ $bot->is_active ? __('On') : __('Off') }}</dd></div>
                         </dl>
 
                         <footer>
                             <a href="{{ route('bots.settings.edit', $bot) }}"><i class="iconoir-settings" aria-hidden="true"></i>{{ __('Settings') }}</a>
                             <a href="{{ route('bots.training.index', $bot) }}"><i class="iconoir-book" aria-hidden="true"></i>{{ __('Train') }}</a>
-                            <button class="icon-only" type="button" disabled aria-label="{{ __('Embed controls are not available yet') }}" title="{{ __('Embed controls are not available yet') }}"><i class="iconoir-code" aria-hidden="true"></i></button>
+                            <a class="icon-only" href="{{ route('bots.embed.edit', $bot) }}" aria-label="{{ __('Embed and share :bot', ['bot' => $bot->name]) }}" title="{{ __('Embed & Share') }}"><i class="iconoir-code" aria-hidden="true"></i></a>
                         </footer>
                     </article>
                 @endforeach

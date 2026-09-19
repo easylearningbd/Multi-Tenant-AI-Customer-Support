@@ -52,6 +52,12 @@ final class Bot extends Model
         return $this->hasOne(BotSetting::class);
     }
 
+    /** @return HasOne<Widget, $this> */
+    public function widget(): HasOne
+    {
+        return $this->hasOne(Widget::class);
+    }
+
     /** @return HasMany<BotStarterQuestion, $this> */
     public function starterQuestions(): HasMany
     {
@@ -78,5 +84,11 @@ final class Bot extends Model
     public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
+    }
+
+    /** @return HasMany<VisitorSession, $this> */
+    public function visitorSessions(): HasMany
+    {
+        return $this->hasMany(VisitorSession::class);
     }
 }

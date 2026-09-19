@@ -57,6 +57,11 @@ final class Conversation extends Model
         return $this->belongsTo(Bot::class);
     }
 
+    public function visitorSession(): BelongsTo
+    {
+        return $this->belongsTo(VisitorSession::class);
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(ConversationMessage::class)->orderBy('id');

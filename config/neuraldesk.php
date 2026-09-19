@@ -117,4 +117,28 @@ return [
         'evidence_character_limit' => (int) env('RAG_EVIDENCE_CHARACTER_LIMIT', 16000),
         'requests_per_minute' => (int) env('RAG_REQUESTS_PER_MINUTE', 12),
     ],
+
+    'widgets' => [
+        'accent_colors' => [
+            '#6259E8' => 'Purple',
+            '#08B9E8' => 'Cyan',
+            '#20C66B' => 'Green',
+            '#F59E0B' => 'Orange',
+            '#111827' => 'Navy',
+        ],
+        'default_accent_color' => '#6259E8',
+        'default_position' => 'bottom_right',
+        'default_welcome_message' => 'How can we help you today?',
+        'welcome_message_max' => 500,
+        'loader_path' => 'widgets/v1/%s/loader.js',
+        'hosted_path' => 'chat/%s',
+        'demo_path' => 'widgets/demo/%s',
+        'maximum_origins' => (int) env('WIDGET_MAXIMUM_ORIGINS', 25),
+        'session_lifetime_minutes' => (int) env('WIDGET_SESSION_LIFETIME_MINUTES', 720),
+        'proof_lifetime_minutes' => (int) env('WIDGET_PROOF_LIFETIME_MINUTES', 10),
+        'bootstrap_rate_per_minute' => (int) env('WIDGET_BOOTSTRAP_RATE_PER_MINUTE', 30),
+        'message_rate_per_minute' => (int) env('WIDGET_MESSAGE_RATE_PER_MINUTE', 12),
+        'poll_rate_per_minute' => (int) env('WIDGET_POLL_RATE_PER_MINUTE', 60),
+        'prechat_value_max' => (int) env('WIDGET_PRECHAT_VALUE_MAX', 1000),
+    ],
 ];

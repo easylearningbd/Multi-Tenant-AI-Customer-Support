@@ -1,12 +1,12 @@
 # Bot foundation
 
-The bot subsystem currently provides persistence, configuration defaults, subscriber authorization, the owner-scoped bot list, transactional draft creation, and the subscriber settings workflow. It does not call an AI provider, ingest knowledge, or serve a public widget.
+The bot subsystem provides persistence, configuration defaults, subscriber authorization, the owner-scoped bot list, transactional creation, settings, knowledge ingestion, tenant-scoped RAG answers, and public widget delivery.
 
 ## Tenant boundary
 
 The application currently has no workspace or membership tables. Its existing subscriptions, payments, plan limits, and subscriber authorization use the subscriber `users.id` as the billing-owner boundary. Bots therefore use `bots.user_id` and must be queried through `Bot::ownedBy($user)` or `$user->bots()`, then authorized through `BotPolicy`.
 
-Do not accept `user_id` from a request. Ownership and bot parent identifiers are not mass assignable. The public ULID is used for future route binding; internal numeric IDs are not public widget credentials.
+Do not accept `user_id` from a request. Ownership and bot parent identifiers are not mass assignable. Bot and widget public ULIDs are opaque route identifiers; internal numeric IDs are never public widget credentials.
 
 Before shared workspaces or invited members are implemented, introduce the canonical workspace/membership model and migrate bot ownership deliberately rather than adding a second tenant system.
 

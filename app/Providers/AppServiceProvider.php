@@ -100,5 +100,17 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(max(1, (int) config('neuraldesk.rag.requests_per_minute', 12)))
                 ->by('rag-message:'.$request->user()?->id.':'.$botKey);
         });
+
+        RateLimiter::for('widget-bootstrap', fn (Request $request): Limit => Limit::perMinute(
+            max(1, (int) config('neuraldesk.widgets.bootstrap_rate_per_minute', 30)),
+        )->by('widget-bootstrap:'.$request->route('publicWidget').':'.$request->ip()));
+
+        RateLimiter::for('widget-message', fn (Request $request): Limit => Limit::perMinute(
+            max(1, (int) config('neuraldesk.widgets.message_rate_per_minute', 12)),
+        )->by('widget-message:'.$request->route('publicWidget').':'.$request->ip().':'.hash('sha256', (string) $request->bearerToken())));
+
+        RateLimiter::for('widget-poll', fn (Request $request): Limit => Limit::perMinute(
+            max(1, (int) config('neuraldesk.widgets.poll_rate_per_minute', 60)),
+        )->by('widget-poll:'.$request->route('publicWidget').':'.$request->ip().':'.hash('sha256', (string) $request->bearerToken())));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\DTOs\ConversationOrigin;
 use App\DTOs\QueuedConversationMessage;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageActor;
@@ -20,26 +21,33 @@ final class QueueConversationMessage
 {
     public function __construct(private readonly AiAnswerUsageService $usage) {}
 
-    public function execute(User $user, Bot $bot, string $body, string $idempotencyKey, ?string $conversationUuid = null): QueuedConversationMessage
+    public function execute(User $user, Bot $bot, string $body, string $idempotencyKey, ?string $conversationUuid = null, ?ConversationOrigin $origin = null): QueuedConversationMessage
     {
         abort_unless($bot->user_id === $user->id, 404);
         if (! $bot->is_active) {
             throw ValidationException::withMessages(['bot' => __('This bot is inactive and cannot answer new messages.')]);
         }
 
-        return DB::transaction(function () use ($user, $bot, $body, $idempotencyKey, $conversationUuid): QueuedConversationMessage {
+        return DB::transaction(function () use ($user, $bot, $body, $idempotencyKey, $conversationUuid, $origin): QueuedConversationMessage {
             User::query()->subscribers()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $lockedBot = Bot::query()->ownedBy($user)->whereKey($bot->id)->lockForUpdate()->firstOrFail();
 
             $existing = ConversationMessage::query()->forTenantBot($user->id, $lockedBot->id)
                 ->where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
-                return new QueuedConversationMessage($existing->conversation()->firstOrFail(), $existing, false);
+                $existingConversation = $existing->conversation()->firstOrFail();
+                abort_unless($origin?->visitorSessionId === null || $existingConversation->visitor_session_id === $origin->visitorSessionId, 404);
+
+                return new QueuedConversationMessage($existingConversation, $existing, false);
             }
 
+            $conversationQuery = Conversation::query()->ownedBy($user)->forBot($lockedBot);
+            if ($origin?->visitorSessionId !== null) {
+                $conversationQuery->where('visitor_session_id', $origin->visitorSessionId);
+            }
             $conversation = $conversationUuid
-                ? Conversation::query()->ownedBy($user)->forBot($lockedBot)->where('uuid', $conversationUuid)->lockForUpdate()->firstOrFail()
-                : $this->createConversation($user, $lockedBot, $body);
+                ? $conversationQuery->where('uuid', $conversationUuid)->lockForUpdate()->firstOrFail()
+                : $this->createConversation($user, $lockedBot, $body, $origin);
             if (! $conversation->status->acceptsAiReplies()) {
                 throw ValidationException::withMessages(['conversation' => __('This conversation is not accepting AI replies.')]);
             }
@@ -65,16 +73,17 @@ final class QueueConversationMessage
         }, 3);
     }
 
-    private function createConversation(User $user, Bot $bot, string $body): Conversation
+    private function createConversation(User $user, Bot $bot, string $body, ?ConversationOrigin $origin): Conversation
     {
         $conversation = new Conversation;
         $conversation->uuid = (string) Str::uuid();
         $conversation->user_id = $user->id;
         $conversation->bot_id = $bot->id;
+        $conversation->visitor_session_id = $origin?->visitorSessionId;
         $conversation->fill([
             'status' => ConversationStatus::OPEN_AI,
-            'channel' => 'subscriber_api',
-            'visitor_identifier' => 'subscriber-'.$user->id,
+            'channel' => $origin?->channel ?? 'subscriber_api',
+            'visitor_identifier' => $origin?->visitorIdentifier ?? 'subscriber-'.$user->id,
             'subject' => Str::limit(Str::squish($body), 180, ''),
             'started_at' => now('UTC'),
             'last_message_at' => now('UTC'),

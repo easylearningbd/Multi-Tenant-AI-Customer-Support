@@ -6,7 +6,7 @@
 
 @section('header-actions')
     <a class="nd-sub-settings-action secondary" href="{{ route('bots.index') }}"><i class="iconoir-arrow-left" aria-hidden="true"></i>{{ __('Back') }}</a>
-    <button class="nd-sub-settings-action secondary" type="button" disabled title="{{ __('Embed controls become available in Phase 6.') }}"><i class="iconoir-code" aria-hidden="true"></i>{{ __('Embed') }}</button>
+    <a class="nd-sub-settings-action secondary" href="{{ route('bots.embed.edit', $bot) }}"><i class="iconoir-code" aria-hidden="true"></i>{{ __('Embed') }}</a>
     <form method="POST" action="{{ route('bots.training.retrain-all', $bot) }}">
         @csrf
         <button class="nd-sub-training-gradient" type="submit" @disabled($sources->total() === 0)><i class="iconoir-refresh" aria-hidden="true"></i>{{ __('Retrain now') }}</button>
