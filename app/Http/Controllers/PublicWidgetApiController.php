@@ -6,6 +6,7 @@ use App\Actions\CreateVisitorSession;
 use App\Actions\QueuePublicWidgetMessage;
 use App\Actions\RequestPublicHandoff;
 use App\Actions\SaveVisitorPrechat;
+use App\Enums\MessageActor;
 use App\Http\Requests\BootstrapPublicWidgetRequest;
 use App\Http\Requests\PublicWidgetHandoffRequest;
 use App\Http\Requests\PublicWidgetMessageRequest;
@@ -52,6 +53,7 @@ final class PublicWidgetApiController extends Controller
             'conversation_uuid' => $queued->conversation->uuid,
             'message_uuid' => $queued->message->uuid,
             'status' => $queued->message->status->value,
+            'conversation_status' => $queued->conversation->status->value,
         ]], $queued->created ? 202 : 200);
     }
 
@@ -62,12 +64,19 @@ final class PublicWidgetApiController extends Controller
         $conversation = Conversation::query()->where('uuid', $conversationUuid)
             ->where('user_id', $session->user_id)->where('bot_id', $session->bot_id)
             ->where('visitor_session_id', $session->id)->firstOrFail();
-        $messages = $conversation->messages()->with(['replyTo:id,uuid', 'citations:id,conversation_message_id,source_uuid,source_name,rank'])
+        $conversation->messages()->reorder()->where('actor_type', MessageActor::AGENT)
+            ->whereNull('delivered_at')->update(['delivered_at' => now('UTC'), 'updated_at' => now('UTC')]);
+        $messages = $conversation->messages()->with([
+            'sender:id,name',
+            'replyTo:id,uuid',
+            'citations:id,conversation_message_id,source_uuid,source_name,rank',
+        ])
             ->limit(100)->get();
 
         return response()->json(['data' => [
             'uuid' => $conversation->uuid,
             'status' => $conversation->status->value,
+            'handling_mode' => $conversation->effectiveHandlingMode()->value,
             'messages' => ConversationMessageResource::collection($messages)->resolve($request),
         ]]);
     }

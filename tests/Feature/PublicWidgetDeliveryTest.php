@@ -15,9 +15,11 @@ use App\Models\User;
 use App\Models\VisitorSession;
 use App\Models\Widget;
 use App\Models\WidgetDomain;
+use App\Notifications\ConversationHandoffRequestedNotification;
 use App\Services\PublicWidgetAccessProof;
 use App\Services\WidgetOriginPolicy;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -275,9 +277,10 @@ test('visitor tokens cannot read or append another session or tenant conversatio
         ->assertNotFound();
 });
 
-test('public handoff transitions only the visitor session conversation and stops ai replies', function () {
+test('public handoff transitions only the visitor session conversation and keeps visitor messaging in manual mode', function () {
     Queue::fake();
-    ['widget' => $widget] = createPublicWidgetEnvironment(['offer_human_handoff' => true]);
+    Notification::fake();
+    ['user' => $user, 'widget' => $widget] = createPublicWidgetEnvironment(['offer_human_handoff' => true]);
     $session = createPublicWidgetSession($this, $widget);
     $message = $this->withToken($session['token'])->postJson(route('widgets.api.messages.store', $widget->public_id), [
         'message' => 'I need a person',
@@ -296,17 +299,18 @@ test('public handoff transitions only the visitor session conversation and stops
         'message' => 'AI must not answer this',
         'idempotency_key' => (string) Str::uuid(),
         'conversation_uuid' => $conversation->uuid,
-    ])->assertUnprocessable()
-        ->assertJsonValidationErrors('conversation');
+    ])->assertAccepted()
+        ->assertJsonPath('data.conversation_status', ConversationStatus::NEEDS_HUMAN->value);
 
     $this->withToken($session['token'])->postJson(route('widgets.api.handoff.store', $widget->public_id), [
         'conversation_uuid' => $conversation->uuid,
     ])->assertOk()->assertJsonPath('data.status', ConversationStatus::NEEDS_HUMAN->value);
 
     expect($conversation->fresh()->handoff_requested_at->equalTo($handoffRequestedAt))->toBeTrue();
-    $this->assertDatabaseCount('conversation_messages', 1);
+    $this->assertDatabaseCount('conversation_messages', 3);
     $this->assertDatabaseCount('usage_ledgers', 1);
     Queue::assertPushed(GenerateConversationReply::class, 1);
+    Notification::assertSentTo($user, ConversationHandoffRequestedNotification::class);
 });
 
 test('widget session creation is rate limited by public widget and address', function () {

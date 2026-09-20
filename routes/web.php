@@ -18,6 +18,11 @@ use App\Http\Controllers\BotController;
 use App\Http\Controllers\BotEmbedController;
 use App\Http\Controllers\BotSettingsController;
 use App\Http\Controllers\BotTrainingController;
+use App\Http\Controllers\ConversationAttachmentController;
+use App\Http\Controllers\ConversationInboxController;
+use App\Http\Controllers\ConversationMessageController;
+use App\Http\Controllers\ConversationModeController;
+use App\Http\Controllers\ConversationStateController;
 use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicWidgetApiController;
@@ -151,6 +156,30 @@ Route::get('/dashboard', SubscriberDashboardController::class)
     ->name('dashboard');
 
 Route::middleware(['auth', 'role:user'])->group(function () {
+    Route::prefix('/dashboard/conversations')->name('conversations.')->group(function () {
+        Route::get('/', ConversationInboxController::class)->name('index');
+        Route::get('/activity', [ConversationStateController::class, 'activity'])
+            ->middleware('throttle:conversation-poll')->name('activity');
+        Route::get('/{subscriberConversation}/messages', [ConversationMessageController::class, 'index'])
+            ->middleware('throttle:conversation-poll')->name('messages.index');
+        Route::post('/{subscriberConversation}/messages', [ConversationMessageController::class, 'store'])
+            ->middleware('throttle:conversation-reply')->name('messages.store');
+        Route::patch('/{subscriberConversation}/mode', ConversationModeController::class)
+            ->middleware('throttle:conversation-action')->name('mode.update');
+        Route::patch('/{subscriberConversation}/resolve', [ConversationStateController::class, 'resolve'])
+            ->middleware('throttle:conversation-action')->name('resolve');
+        Route::patch('/{subscriberConversation}/reopen', [ConversationStateController::class, 'reopen'])
+            ->middleware('throttle:conversation-action')->name('reopen');
+        Route::patch('/{subscriberConversation}/archive', [ConversationStateController::class, 'archive'])
+            ->middleware('throttle:conversation-action')->name('archive');
+        Route::post('/{subscriberConversation}/read', [ConversationStateController::class, 'read'])
+            ->middleware('throttle:conversation-action')->name('read');
+        Route::get('/{subscriberConversation}/attachments/{attachment}', ConversationAttachmentController::class)
+            ->whereUuid('attachment')->name('attachments.download');
+        Route::delete('/{subscriberConversation}', [ConversationStateController::class, 'destroy'])
+            ->middleware('throttle:conversation-action')->name('destroy');
+    });
+
     Route::get('/bots', [BotController::class, 'index'])->name('bots.index');
     Route::post('/bots', [BotController::class, 'store'])->name('bots.store');
     Route::get('/bots/{subscriberBot}/setup', [BotController::class, 'setup'])->name('bots.setup');

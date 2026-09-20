@@ -119,6 +119,24 @@ return [
         'requests_per_minute' => (int) env('RAG_REQUESTS_PER_MINUTE', 12),
     ],
 
+    'conversations' => [
+        'page_size' => (int) env('CONVERSATION_INBOX_PAGE_SIZE', 20),
+        'message_page_size' => (int) env('CONVERSATION_MESSAGE_PAGE_SIZE', 50),
+        'poll_seconds' => (int) env('CONVERSATION_POLL_SECONDS', 4),
+        'attachment_disk' => env('CONVERSATION_ATTACHMENT_DISK', 'conversation_attachments'),
+        'attachment_max_kb' => (int) env('CONVERSATION_ATTACHMENT_MAX_KB', 10240),
+        'maximum_attachments' => (int) env('CONVERSATION_MAXIMUM_ATTACHMENTS', 5),
+        'allowed_attachments' => [
+            'pdf' => ['application/pdf'],
+            'txt' => ['text/plain'],
+            'png' => ['image/png'],
+            'jpg' => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'webp' => ['image/webp'],
+            'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+        ],
+    ],
+
     'widgets' => [
         'accent_colors' => [
             '#6259E8' => 'Purple',

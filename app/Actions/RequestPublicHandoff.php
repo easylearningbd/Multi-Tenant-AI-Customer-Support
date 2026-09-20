@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\ConversationStatus;
 use App\Models\Conversation;
 use App\Models\VisitorSession;
+use App\Notifications\ConversationHandoffRequestedNotification;
 use App\Services\ConversationTransitionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -25,11 +26,13 @@ final class RequestPublicHandoff
                 || $conversation->status === ConversationStatus::OPEN_MANUAL) {
                 return $conversation;
             }
-            if (! $conversation->status->acceptsAiReplies()) {
+            if (! $conversation->acceptsAiReplies()) {
                 throw ValidationException::withMessages(['conversation' => __('This conversation cannot request a handoff.')]);
             }
 
             $this->transitions->transition($conversation, ConversationStatus::NEEDS_HUMAN);
+            DB::afterCommit(fn () => $session->user()->firstOrFail()
+                ->notify(new ConversationHandoffRequestedNotification($conversation->id)));
 
             return $conversation->refresh();
         }, 3);

@@ -4,6 +4,8 @@ namespace App\Actions;
 
 use App\DTOs\ConversationOrigin;
 use App\DTOs\QueuedConversationMessage;
+use App\Enums\ConversationHandlingMode;
+use App\Enums\ConversationMessageType;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageActor;
 use App\Enums\MessageStatus;
@@ -48,11 +50,13 @@ final class QueueConversationMessage
             $conversation = $conversationUuid
                 ? $conversationQuery->where('uuid', $conversationUuid)->lockForUpdate()->firstOrFail()
                 : $this->createConversation($user, $lockedBot, $body, $origin);
-            if (! $conversation->status->acceptsAiReplies()) {
+            if (in_array($conversation->status, [ConversationStatus::RESOLVED, ConversationStatus::ARCHIVED, ConversationStatus::SPAM], true)) {
                 throw ValidationException::withMessages([
-                    'conversation' => __('AI replies are paused because a support person was requested. Reload the chat to start a new AI conversation.'),
+                    'conversation' => __('This conversation is closed and cannot accept new messages.'),
                 ]);
             }
+
+            $usesAi = $conversation->acceptsAiReplies();
 
             $message = new ConversationMessage;
             $message->uuid = (string) Str::uuid();
@@ -61,15 +65,24 @@ final class QueueConversationMessage
             $message->conversation_id = $conversation->id;
             $message->fill([
                 'actor_type' => MessageActor::VISITOR,
-                'status' => MessageStatus::QUEUED,
+                'message_type' => ConversationMessageType::TEXT,
+                'status' => $usesAi ? MessageStatus::QUEUED : MessageStatus::RECEIVED,
                 'idempotency_key' => $idempotencyKey,
                 'body' => trim($body),
             ]);
             $message->save();
 
-            $ledger = $this->usage->reserve($user, $lockedBot, $conversation, $message);
-            $conversation->forceFill(['last_message_at' => now('UTC')])->save();
-            GenerateConversationReply::dispatch($message->id, $conversation->id, $ledger->id, $user->id, $lockedBot->id)->afterCommit();
+            $conversation->forceFill([
+                'last_message_at' => $message->created_at,
+                'last_message_preview' => Str::limit(Str::squish((string) $message->body), 500, ''),
+                'last_message_sender_type' => MessageActor::VISITOR->value,
+                'unread_count' => $conversation->unread_count + 1,
+            ])->save();
+
+            if ($usesAi) {
+                $ledger = $this->usage->reserve($user, $lockedBot, $conversation, $message);
+                GenerateConversationReply::dispatch($message->id, $conversation->id, $ledger->id, $user->id, $lockedBot->id)->afterCommit();
+            }
 
             return new QueuedConversationMessage($conversation, $message, true);
         }, 3);
@@ -84,11 +97,13 @@ final class QueueConversationMessage
         $conversation->visitor_session_id = $origin?->visitorSessionId;
         $conversation->fill([
             'status' => ConversationStatus::OPEN_AI,
+            'handling_mode' => ConversationHandlingMode::AI,
             'channel' => $origin?->channel ?? 'subscriber_api',
             'visitor_identifier' => $origin?->visitorIdentifier ?? 'subscriber-'.$user->id,
             'subject' => Str::limit(Str::squish($body), 180, ''),
             'started_at' => now('UTC'),
             'last_message_at' => now('UTC'),
+            'unread_count' => 0,
         ]);
         $conversation->save();
 

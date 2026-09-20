@@ -131,7 +131,7 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
             $conversation = Conversation::query()->whereKey($this->conversationId)->where('user_id', $this->tenantId)
                 ->where('bot_id', $this->botId)->lockForUpdate()->first();
 
-            return $conversation?->status->acceptsAiReplies() === true;
+            return $conversation?->acceptsAiReplies() === true;
         }, 3);
     }
 
@@ -153,7 +153,7 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
     ): void {
         DB::transaction(function () use ($message, $ledger, $retrieval, $rewrite, $result, $answer, $usage, $costs): void {
             $locked = $this->lockedConversation();
-            if (! $locked || ! $locked->status->acceptsAiReplies() || $this->replyExists()) {
+            if (! $locked || ! $locked->acceptsAiReplies() || $this->replyExists()) {
                 $usage->release($ledger);
 
                 return;
@@ -177,7 +177,11 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
             $reply->save();
             $this->persistCitations($reply, $retrieval);
             $message->forceFill(['status' => MessageStatus::RECEIVED])->save();
-            $locked->forceFill(['last_message_at' => now('UTC')])->save();
+            $locked->forceFill([
+                'last_message_at' => $reply->created_at,
+                'last_message_preview' => Str::limit(Str::squish($answer), 500, ''),
+                'last_message_sender_type' => MessageActor::AI->value,
+            ])->save();
             $usage->commit($ledger, $result->model, $inputTokens, $outputTokens, $cost?->minorUnits, $cost?->currency);
         }, 3);
     }
@@ -218,7 +222,7 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
                 return;
             }
             $message->forceFill(['status' => MessageStatus::FAILED, 'error_code' => 'ai_generation_failed'])->save();
-            if ($conversation->status->acceptsAiReplies()) {
+            if ($conversation->acceptsAiReplies()) {
                 $reply = $this->newReply($conversation, $message, MessageStatus::FAILED, __('The assistant could not answer safely. Please try again or contact support.'));
                 $reply->error_code = 'ai_generation_failed';
                 $reply->save();

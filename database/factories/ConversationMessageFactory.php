@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ConversationMessageType;
 use App\Enums\MessageActor;
 use App\Enums\MessageStatus;
 use App\Models\Conversation;
@@ -22,6 +23,7 @@ final class ConversationMessageFactory extends Factory
             'user_id' => fn (array $attributes) => Conversation::find($attributes['conversation_id'])->user_id,
             'bot_id' => fn (array $attributes) => Conversation::find($attributes['conversation_id'])->bot_id,
             'actor_type' => MessageActor::VISITOR,
+            'message_type' => ConversationMessageType::TEXT,
             'status' => MessageStatus::RECEIVED,
             'idempotency_key' => (string) Str::uuid(),
             'body' => fake()->sentence(),

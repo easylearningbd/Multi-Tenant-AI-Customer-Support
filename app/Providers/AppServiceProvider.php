@@ -115,5 +115,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('widget-poll', fn (Request $request): Limit => Limit::perMinute(
             max(1, (int) config('neuraldesk.widgets.poll_rate_per_minute', 60)),
         )->by('widget-poll:'.$request->route('publicWidget').':'.$request->ip().':'.hash('sha256', (string) $request->bearerToken())));
+
+        RateLimiter::for('conversation-reply', fn (Request $request): Limit => Limit::perMinute(30)
+            ->by('conversation-reply:'.$request->user()?->id));
+
+        RateLimiter::for('conversation-action', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by('conversation-action:'.$request->user()?->id));
+
+        RateLimiter::for('conversation-poll', fn (Request $request): Limit => Limit::perMinute(120)
+            ->by('conversation-poll:'.$request->user()?->id));
     }
 }

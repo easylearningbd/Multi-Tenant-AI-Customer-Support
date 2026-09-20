@@ -141,6 +141,12 @@ class User extends Authenticatable
         return $this->hasMany(Conversation::class);
     }
 
+    /** @return HasMany<ConversationAttachment, $this> */
+    public function conversationAttachments(): HasMany
+    {
+        return $this->hasMany(ConversationAttachment::class);
+    }
+
     /** @return HasMany<VisitorSession, $this> */
     public function visitorSessions(): HasMany
     {

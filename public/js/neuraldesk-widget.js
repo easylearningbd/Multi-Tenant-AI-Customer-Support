@@ -11,7 +11,8 @@
         widget: null,
         sending: false,
         pendingReplies: Object.create(null),
-        typingIndicator: null
+        typingIndicator: null,
+        watchTimer: null
     };
     var embedded = root.dataset.embedded === 'true';
     var panel = root.querySelector('[data-widget-panel]');
@@ -27,11 +28,12 @@
     var handoff = root.querySelector('[data-widget-handoff]');
 
     function syncConversationControls() {
-        var aiPaused = Boolean(state.conversation && state.conversationStatus && state.conversationStatus !== 'open_ai');
-        messageInput.disabled = aiPaused;
-        submitButton.disabled = state.sending || aiPaused || !state.token;
-        handoff.hidden = !state.widget || !state.widget.handoff_available || !state.conversation || aiPaused;
-        handoff.disabled = aiPaused;
+        var closed = ['resolved', 'archived', 'spam'].indexOf(state.conversationStatus) !== -1;
+        var manual = ['needs_human', 'open_manual'].indexOf(state.conversationStatus) !== -1;
+        messageInput.disabled = closed;
+        submitButton.disabled = state.sending || closed || !state.token;
+        handoff.hidden = !state.widget || !state.widget.handoff_available || !state.conversation || manual || closed;
+        handoff.disabled = manual || closed;
     }
 
     function setNotice(text, isError) {
@@ -135,7 +137,7 @@
         }
 
         var item = document.createElement('article');
-        item.className = 'nd-widget-message ' + (actor === 'visitor' ? 'is-visitor' : actor === 'status' ? 'is-status' : 'is-ai');
+        item.className = 'nd-widget-message ' + (actor === 'visitor' ? 'is-visitor' : (actor === 'status' || actor === 'system') ? 'is-status' : 'is-ai');
         var content = document.createElement('div');
         content.className = 'nd-widget-message-content';
         appendMessageContent(content, body);
@@ -313,6 +315,35 @@
         }
     }
 
+    async function watchConversation(immediate) {
+        window.clearTimeout(state.watchTimer);
+        if (!state.conversation) return;
+        if (document.hidden && !immediate) {
+            state.watchTimer = window.setTimeout(function () { watchConversation(false); }, 8000);
+            return;
+        }
+        try {
+            var url = root.dataset.conversationUrl.replace('__CONVERSATION__', encodeURIComponent(state.conversation));
+            var data = await request(url, { method: 'GET' });
+            state.conversationStatus = data.status;
+            (data.messages || []).forEach(function (message) {
+                addMessage(message.body, message.actor, message.uuid, message.created_at);
+                if (message.reply_to_uuid && state.pendingReplies[message.reply_to_uuid]) finishPendingReply(message.reply_to_uuid);
+            });
+            if (['needs_human', 'open_manual'].indexOf(data.status) !== -1) {
+                state.pendingReplies = Object.create(null);
+                syncTypingIndicator();
+                setNotice('A support person is handling this conversation. You can keep sending messages here.');
+            } else if (data.status === 'open_ai') {
+                setNotice('');
+            }
+            syncConversationControls();
+        } catch (error) {
+            setNotice(error.message, true);
+        }
+        state.watchTimer = window.setTimeout(function () { watchConversation(false); }, 3000);
+    }
+
     async function sendMessage(text) {
         text = String(text || '').trim();
         if (!text || state.sending || !state.token) return;
@@ -329,13 +360,13 @@
                 body: JSON.stringify({ message: text, idempotency_key: newUuid(), conversation_uuid: state.conversation })
             });
             state.conversation = data.conversation_uuid;
-            state.conversationStatus = 'open_ai';
+            state.conversationStatus = data.conversation_status || 'open_ai';
             optimistic.dataset.messageId = data.message_uuid;
-            state.pendingReplies[data.message_uuid] = true;
+            if (state.conversationStatus === 'open_ai') state.pendingReplies[data.message_uuid] = true;
             syncTypingIndicator();
             setNotice('');
             syncConversationControls();
-            poll(data.message_uuid, 0);
+            watchConversation(true);
         } catch (error) {
             optimistic.remove();
             syncTypingIndicator();
@@ -378,11 +409,15 @@
             state.conversationStatus = data.status;
             state.pendingReplies = Object.create(null);
             syncTypingIndicator();
-            setNotice('A support person has been requested. Reload the chat to start a new AI conversation.');
+            setNotice('A support person has been requested. You can keep sending messages here.');
             syncConversationControls();
+            watchConversation(true);
         } catch (error) { setNotice(error.message, true); handoff.disabled = false; }
     });
 
     if (embedded) notifyParent(false);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && state.conversation) watchConversation(true);
+    });
     bootstrap();
 })();
