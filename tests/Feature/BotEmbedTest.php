@@ -159,6 +159,25 @@ test('bot creation provisions default settings and one widget atomically', funct
         ->and($bot->setting)->not->toBeNull();
 });
 
+test('bot creation uses safe widget defaults when newly deployed configuration is missing', function () {
+    $subscriber = User::factory()->subscriber()->create();
+    createEmbedPlanSubscription($subscriber);
+    config()->set('neuraldesk.widgets.default_position');
+    config()->set('neuraldesk.widgets.default_accent_color');
+    config()->set('neuraldesk.widgets.default_welcome_message');
+
+    $this->actingAs($subscriber)
+        ->post(route('bots.store'), ['name' => 'Resilient Support'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('toast.type', 'success');
+
+    $widget = Widget::query()->sole();
+    expect($widget->position->value)->toBe('bottom_right')
+        ->and($widget->accent_color)->toBe('#6259E8')
+        ->and($widget->welcome_message)->not->toBeEmpty();
+});
+
 test('bots list reports configured widget count and links to embed settings', function () {
     $subscriber = User::factory()->subscriber()->create();
     createEmbedPlanSubscription($subscriber);

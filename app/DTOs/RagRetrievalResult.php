@@ -9,7 +9,7 @@ final readonly class RagRetrievalResult
         public array $matches,
         public string $embeddingModel,
         public int $embeddingDimensions,
-        public float $minimumScore,
+        public ?float $minimumScore,
         public int $durationMs,
     ) {}
 

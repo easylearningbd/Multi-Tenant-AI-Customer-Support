@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\ChatCompletionProviderInterface;
+use App\Contracts\ConversationQueryRewriterInterface;
 use App\Contracts\EmbeddingProviderInterface;
 use App\Contracts\KnowledgeRetrieverInterface;
 use App\Contracts\RagPromptBuilderInterface;
@@ -21,6 +22,7 @@ use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
 use App\Policies\SupportTicketPolicy;
 use App\Policies\UserPolicy;
+use App\Services\ConversationQueryRewriter;
 use App\Services\KnowledgeRetriever;
 use App\Services\MySqlVectorStore;
 use App\Services\OpenAIEmbeddingService;
@@ -45,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(KnowledgeRetrieverInterface::class, KnowledgeRetriever::class);
         $this->app->bind(RagPromptBuilderInterface::class, RagPromptBuilder::class);
         $this->app->bind(ChatCompletionProviderInterface::class, OpenAIResponseService::class);
+        $this->app->bind(ConversationQueryRewriterInterface::class, ConversationQueryRewriter::class);
     }
 
     /**

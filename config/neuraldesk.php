@@ -6,7 +6,9 @@ return [
         'openai' => [
             'api_key' => env('OPENAI_API_KEY'),
             'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+            'ca_bundle' => env('OPENAI_CA_BUNDLE'),
             'chat_model' => env('OPENAI_CHAT_MODEL'),
+            'query_rewrite_model' => env('OPENAI_QUERY_REWRITE_MODEL', env('OPENAI_CHAT_MODEL')),
             'embedding_model' => env('OPENAI_EMBEDDING_MODEL'),
             'embedding_dimensions' => env('OPENAI_EMBEDDING_DIMENSIONS') !== null
                 ? (int) env('OPENAI_EMBEDDING_DIMENSIONS')
@@ -24,7 +26,7 @@ return [
         'defaults' => [
             'temperature' => (string) env('AI_DEFAULT_TEMPERATURE', '0.30'),
             'max_output_tokens' => (int) env('AI_DEFAULT_MAX_OUTPUT_TOKENS', 600),
-            'kb_confidence' => (string) env('AI_DEFAULT_KB_CONFIDENCE', '0.650'),
+            'kb_confidence' => (string) env('AI_DEFAULT_KB_CONFIDENCE', '0.200'),
         ],
     ],
 
@@ -110,11 +112,10 @@ return [
     ],
 
     'rag' => [
-        'retrieval_top_k' => (int) env('RAG_RETRIEVAL_TOP_K', 5),
         'message_max_length' => (int) env('RAG_MESSAGE_MAX_LENGTH', 4000),
-        'history_message_limit' => (int) env('RAG_HISTORY_MESSAGE_LIMIT', 10),
         'history_character_limit' => (int) env('RAG_HISTORY_CHARACTER_LIMIT', 12000),
         'evidence_character_limit' => (int) env('RAG_EVIDENCE_CHARACTER_LIMIT', 16000),
+        'query_rewrite_max_output_tokens' => (int) env('RAG_QUERY_REWRITE_MAX_OUTPUT_TOKENS', 120),
         'requests_per_minute' => (int) env('RAG_REQUESTS_PER_MINUTE', 12),
     ],
 

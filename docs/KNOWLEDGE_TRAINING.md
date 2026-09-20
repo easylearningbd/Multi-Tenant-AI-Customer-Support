@@ -28,11 +28,17 @@ Run a worker with:
 php artisan queue:work --queue=knowledge-ingestion --tries=3 --timeout=300
 ```
 
-The database queue connection and standard queue tables are reused.
+The database queue connection and standard queue tables are reused. A worker started without the `--queue=knowledge-ingestion` option listens to the `default` queue and will leave training sources in the queued state.
 
 ## OpenAI configuration
 
 Embeddings are generated server-side through `EmbeddingProviderInterface`. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_EMBEDDING_MODEL`, and `OPENAI_EMBEDDING_DIMENSIONS`. The key is read through Laravel configuration and is never persisted with a source or returned to a view. Automated tests replace the provider and make no paid API requests.
+
+`OPENAI_CA_BUNDLE` optionally points to a trusted CA bundle for local PHP installations that do not configure `curl.cainfo` or `openssl.cafile`. This keeps TLS verification enabled and scopes the certificate path to NeuralDesk's OpenAI requests. For the bundled XAMPP certificate store on Windows, a local value may be:
+
+```env
+OPENAI_CA_BUNDLE=C:\xampp\apache\bin\curl-ca-bundle.crt
+```
 
 ## Website safety
 

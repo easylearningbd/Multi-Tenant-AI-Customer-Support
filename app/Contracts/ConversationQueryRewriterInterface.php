@@ -2,17 +2,17 @@
 
 namespace App\Contracts;
 
-use App\DTOs\RagRetrievalResult;
+use App\DTOs\QueryRewriteResult;
 use App\Models\Bot;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 
-interface KnowledgeRetrieverInterface
+interface ConversationQueryRewriterInterface
 {
-    public function retrieve(
+    public function rewrite(
         Bot $bot,
         Conversation $conversation,
         ConversationMessage $message,
-        string $query,
-    ): RagRetrievalResult;
+        ChatCompletionProviderInterface $provider,
+    ): QueryRewriteResult;
 }

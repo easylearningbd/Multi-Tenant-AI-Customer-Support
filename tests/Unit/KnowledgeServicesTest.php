@@ -39,6 +39,22 @@ test('openai embedding response dimensions are validated', function () {
     expect(fn () => (new OpenAIEmbeddingService)->embedMany(['test']))->toThrow(EmbeddingProviderException::class);
 });
 
+test('openai embedding requests support an application scoped ca bundle', function () {
+    config()->set('neuraldesk.ai.openai.api_key', 'test-key');
+    config()->set('neuraldesk.ai.openai.embedding_model', 'text-embedding-test');
+    config()->set('neuraldesk.ai.openai.embedding_dimensions', 3);
+    config()->set('neuraldesk.ai.openai.ca_bundle', __FILE__);
+    Http::fake(['*/embeddings' => Http::response([
+        'data' => [['index' => 0, 'embedding' => [1.0, 2.0, 3.0]]],
+    ], 200)]);
+
+    $result = (new OpenAIEmbeddingService)->embedMany(['test']);
+
+    expect($result->dimensions)->toBe(3)
+        ->and($result->model)->toBe('text-embedding-test');
+    Http::assertSentCount(1);
+});
+
 test('redirects to private addresses are rejected', function () {
     $safety = new class extends UrlSafetyService
     {

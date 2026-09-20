@@ -69,7 +69,7 @@ final class MySqlVectorStore implements VectorStoreInterface
                     return;
                 }
 
-                if ($score < $query->minimumScore || ! $chunk->source) {
+                if (($query->minimumScore !== null && $score < $query->minimumScore) || ! $chunk->source) {
                     return;
                 }
 

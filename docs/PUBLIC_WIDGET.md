@@ -22,7 +22,9 @@ Public API routes are excluded from cookie CSRF verification because they do not
 
 ## Conversation and AI behavior
 
-Messages use `QueueConversationMessage`, which atomically persists a tenant- and bot-scoped conversation/message, reserves one plan AI-answer unit, and queues `GenerateConversationReply`. The Phase 5 pipeline performs MySQL RAG retrieval, strict-grounding fallback, citations, usage commit/release, and configured handoff. Public requests never call OpenAI from the browser.
+Messages use `QueueConversationMessage`, which atomically persists a tenant- and bot-scoped conversation/message, reserves one plan AI-answer unit, and queues `GenerateConversationReply`. The Phase 5 pipeline rewrites vague questions with five-message memory, retrieves the top five tenant- and bot-scoped MySQL matches without a similarity cutoff, and always generates a conversational grounded answer. If the supplied context does not cover the question, the model explains that warmly and offers human help. Public requests never call OpenAI from the browser.
+
+The hosted and embedded clients display an in-message typing indicator while a reply job is pending. Polling removes it on success, terminal failure, timeout, or handoff. Messages render escaped text as paragraphs and simple lists, and show a browser-local date, weekday, and time. Citation markers are stripped on the server and defensively in the client.
 
 Run workers for the existing AI queue configuration:
 

@@ -3,11 +3,14 @@
 namespace App\Jobs;
 
 use App\Contracts\ChatCompletionProviderInterface;
+use App\Contracts\ConversationQueryRewriterInterface;
 use App\Contracts\KnowledgeRetrieverInterface;
 use App\Contracts\RagPromptBuilderInterface;
 use App\DTOs\ChatCompletionRequest;
+use App\DTOs\ChatCompletionResult;
+use App\DTOs\EstimatedModelCost;
+use App\DTOs\QueryRewriteResult;
 use App\DTOs\RagRetrievalResult;
-use App\Enums\ConversationStatus;
 use App\Enums\MessageActor;
 use App\Enums\MessageStatus;
 use App\Enums\UsageLedgerStatus;
@@ -18,8 +21,7 @@ use App\Models\ConversationMessage;
 use App\Models\KnowledgeChunk;
 use App\Models\UsageLedger;
 use App\Services\AiAnswerUsageService;
-use App\Services\ConversationTransitionService;
-use App\Services\GroundingValidator;
+use App\Services\AiReplySanitizer;
 use App\Services\ModelCostEstimator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -62,11 +64,11 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
     public function handle(
         KnowledgeRetrieverInterface $retriever,
         RagPromptBuilderInterface $prompts,
+        ConversationQueryRewriterInterface $queryRewriter,
         ChatCompletionProviderInterface $provider,
         AiAnswerUsageService $usage,
-        ConversationTransitionService $transitions,
         ModelCostEstimator $costs,
-        GroundingValidator $grounding,
+        AiReplySanitizer $sanitizer,
     ): void {
         $context = $this->context();
         if (! $context) {
@@ -80,14 +82,8 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
         }
 
         try {
-            $retrieval = $retriever->retrieve($bot, $conversation, $message);
-            $setting = $bot->setting()->firstOrFail();
-            if ($setting->answer_only_from_knowledge_base && $retrieval->matches === []) {
-                $this->persistFallback($bot, $conversation, $message, $ledger, $usage, $transitions, $retrieval);
-
-                return;
-            }
-
+            $rewrite = $queryRewriter->rewrite($bot, $conversation, $message, $provider);
+            $retrieval = $retriever->retrieve($bot, $conversation, $message, $rewrite->query);
             $prompt = $prompts->build($bot, $conversation, $message, $retrieval);
             $result = $provider->respond(new ChatCompletionRequest(
                 $prompt->model,
@@ -98,12 +94,11 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
                 'conversation-message-'.$message->uuid,
                 hash('sha256', "tenant:{$this->tenantId}:bot:{$this->botId}:conversation:{$this->conversationId}"),
             ));
-            if ($setting->answer_only_from_knowledge_base && ! $grounding->hasValidCitation($result->text, $retrieval)) {
-                $this->persistFallback($bot, $conversation, $message, $ledger, $usage, $transitions, $retrieval);
-
-                return;
+            $answer = $sanitizer->sanitize($result->text);
+            if ($answer === '') {
+                throw new ChatProviderException('The chat provider returned no usable answer.');
             }
-            $this->persistResult($conversation, $message, $ledger, $retrieval, $result, $usage, $costs);
+            $this->persistResult($message, $ledger, $retrieval, $rewrite, $result, $answer, $usage, $costs);
         } catch (ChatProviderException $exception) {
             if ($exception->retryable) {
                 throw $exception;
@@ -146,31 +141,17 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
             ->where('reply_to_message_id', $this->messageId)->exists();
     }
 
-    private function persistFallback(Bot $bot, Conversation $conversation, ConversationMessage $message, UsageLedger $ledger, AiAnswerUsageService $usage, ConversationTransitionService $transitions, RagRetrievalResult $retrieval): void
-    {
-        DB::transaction(function () use ($bot, $message, $ledger, $usage, $transitions, $retrieval): void {
-            $locked = $this->lockedConversation();
-            if (! $locked || ! $locked->status->acceptsAiReplies() || $this->replyExists()) {
-                $usage->release($ledger);
-
-                return;
-            }
-            $setting = $bot->setting()->firstOrFail();
-            $reply = $this->newReply($locked, $message, MessageStatus::FALLBACK, (string) $setting->fallback_message);
-            $reply->confidence = $retrieval->confidence();
-            $reply->save();
-            $message->forceFill(['status' => MessageStatus::RECEIVED])->save();
-            $locked->forceFill(['last_message_at' => now('UTC')])->save();
-            if ($setting->offer_human_handoff) {
-                $transitions->transition($locked, ConversationStatus::NEEDS_HUMAN);
-            }
-            $usage->release($ledger);
-        }, 3);
-    }
-
-    private function persistResult(Conversation $conversation, ConversationMessage $message, UsageLedger $ledger, RagRetrievalResult $retrieval, $result, AiAnswerUsageService $usage, ModelCostEstimator $costs): void
-    {
-        DB::transaction(function () use ($message, $ledger, $retrieval, $result, $usage, $costs): void {
+    private function persistResult(
+        ConversationMessage $message,
+        UsageLedger $ledger,
+        RagRetrievalResult $retrieval,
+        QueryRewriteResult $rewrite,
+        ChatCompletionResult $result,
+        string $answer,
+        AiAnswerUsageService $usage,
+        ModelCostEstimator $costs,
+    ): void {
+        DB::transaction(function () use ($message, $ledger, $retrieval, $rewrite, $result, $answer, $usage, $costs): void {
             $locked = $this->lockedConversation();
             if (! $locked || ! $locked->status->acceptsAiReplies() || $this->replyExists()) {
                 $usage->release($ledger);
@@ -178,13 +159,15 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            $cost = $costs->estimate($result->model, $result->inputTokens, $result->outputTokens);
-            $reply = $this->newReply($locked, $message, MessageStatus::COMPLETED, $result->text);
+            $inputTokens = $rewrite->inputTokens + $result->inputTokens;
+            $outputTokens = $rewrite->outputTokens + $result->outputTokens;
+            $cost = $this->combinedCost($costs, $rewrite, $result);
+            $reply = $this->newReply($locked, $message, MessageStatus::COMPLETED, $answer);
             $reply->fill([
                 'model' => $result->model,
                 'provider_request_id' => $result->responseId,
-                'input_tokens' => $result->inputTokens,
-                'output_tokens' => $result->outputTokens,
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
                 'estimated_cost_minor' => $cost?->minorUnits,
                 'cost_currency' => $cost?->currency,
                 'latency_ms' => $result->latencyMs,
@@ -195,8 +178,29 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
             $this->persistCitations($reply, $retrieval);
             $message->forceFill(['status' => MessageStatus::RECEIVED])->save();
             $locked->forceFill(['last_message_at' => now('UTC')])->save();
-            $usage->commit($ledger, $result->model, $result->inputTokens, $result->outputTokens, $cost?->minorUnits, $cost?->currency);
+            $usage->commit($ledger, $result->model, $inputTokens, $outputTokens, $cost?->minorUnits, $cost?->currency);
         }, 3);
+    }
+
+    private function combinedCost(
+        ModelCostEstimator $costs,
+        QueryRewriteResult $rewrite,
+        ChatCompletionResult $result,
+    ): ?EstimatedModelCost {
+        $answerCost = $costs->estimate($result->model, $result->inputTokens, $result->outputTokens);
+        if (! $rewrite->usedProvider) {
+            return $answerCost;
+        }
+
+        $rewriteCost = $costs->estimate($rewrite->model, $rewrite->inputTokens, $rewrite->outputTokens);
+        if (! $answerCost || ! $rewriteCost || $answerCost->currency !== $rewriteCost->currency) {
+            return null;
+        }
+
+        return new EstimatedModelCost(
+            $answerCost->minorUnits + $rewriteCost->minorUnits,
+            $answerCost->currency,
+        );
     }
 
     private function persistFailure(): void
@@ -218,10 +222,6 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
                 $reply = $this->newReply($conversation, $message, MessageStatus::FAILED, __('The assistant could not answer safely. Please try again or contact support.'));
                 $reply->error_code = 'ai_generation_failed';
                 $reply->save();
-                $setting = Bot::query()->whereKey($this->botId)->where('user_id', $this->tenantId)->first()?->setting()->first();
-                if ($setting?->offer_human_handoff) {
-                    (new ConversationTransitionService)->transition($conversation, ConversationStatus::NEEDS_HUMAN);
-                }
             }
         }, 3);
     }

@@ -49,7 +49,9 @@ final class QueueConversationMessage
                 ? $conversationQuery->where('uuid', $conversationUuid)->lockForUpdate()->firstOrFail()
                 : $this->createConversation($user, $lockedBot, $body, $origin);
             if (! $conversation->status->acceptsAiReplies()) {
-                throw ValidationException::withMessages(['conversation' => __('This conversation is not accepting AI replies.')]);
+                throw ValidationException::withMessages([
+                    'conversation' => __('AI replies are paused because a support person was requested. Reload the chat to start a new AI conversation.'),
+                ]);
             }
 
             $message = new ConversationMessage;

@@ -33,12 +33,16 @@ final class OpenAIResponseService implements ChatCompletionProviderInterface
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             $started = hrtime(true);
             try {
-                $response = Http::baseUrl(rtrim((string) config('neuraldesk.ai.openai.base_url'), '/'))
+                $provider = Http::baseUrl(rtrim((string) config('neuraldesk.ai.openai.base_url'), '/'))
                     ->withToken($key)->acceptJson()
                     ->withHeaders(['Idempotency-Key' => $request->idempotencyKey])
                     ->connectTimeout((int) config('neuraldesk.ai.openai.connect_timeout', 10))
-                    ->timeout((int) config('neuraldesk.ai.openai.request_timeout', 60))
-                    ->post('/responses', $payload);
+                    ->timeout((int) config('neuraldesk.ai.openai.request_timeout', 60));
+                $caBundle = trim((string) config('neuraldesk.ai.openai.ca_bundle'));
+                if ($caBundle !== '') {
+                    $provider->withOptions(['verify' => $caBundle]);
+                }
+                $response = $provider->post('/responses', $payload);
                 if ($response->successful()) {
                     $text = trim((string) $response->json('output_text', ''));
                     if ($text === '') {

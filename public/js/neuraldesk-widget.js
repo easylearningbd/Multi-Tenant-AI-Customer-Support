@@ -4,7 +4,15 @@
     var root = document.querySelector('[data-widget-root]');
     if (!root) return;
 
-    var state = { token: null, conversation: null, widget: null, sending: false };
+    var state = {
+        token: null,
+        conversation: null,
+        conversationStatus: null,
+        widget: null,
+        sending: false,
+        pendingReplies: Object.create(null),
+        typingIndicator: null
+    };
     var embedded = root.dataset.embedded === 'true';
     var panel = root.querySelector('[data-widget-panel]');
     var launcher = root.querySelector('[data-widget-launcher]');
@@ -15,7 +23,16 @@
     var starters = root.querySelector('[data-widget-starters]');
     var composer = root.querySelector('[data-message-form]');
     var messageInput = composer.querySelector('textarea');
+    var submitButton = composer.querySelector('button');
     var handoff = root.querySelector('[data-widget-handoff]');
+
+    function syncConversationControls() {
+        var aiPaused = Boolean(state.conversation && state.conversationStatus && state.conversationStatus !== 'open_ai');
+        messageInput.disabled = aiPaused;
+        submitButton.disabled = state.sending || aiPaused || !state.token;
+        handoff.hidden = !state.widget || !state.widget.handoff_available || !state.conversation || aiPaused;
+        handoff.disabled = aiPaused;
+    }
 
     function setNotice(text, isError) {
         notice.textContent = text || '';
@@ -51,17 +68,122 @@
         return payload.data;
     }
 
-    function addMessage(body, actor, uuid) {
-        if (uuid && Array.prototype.some.call(messages.children, function (message) {
-            return message.dataset.messageId === uuid;
-        })) return;
-        var item = document.createElement('div');
+    function cleanReply(body) {
+        return String(body || '')
+            .replace(/[ \t]*\[source:[^\]\r\n]*\]/giu, '')
+            .replace(/\r\n?/g, '\n')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+
+    function formatTimestamp(value) {
+        var date = value ? new Date(value) : new Date();
+        if (Number.isNaN(date.getTime())) date = new Date();
+        var weekday = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
+        var calendarDate = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+        var time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(date);
+
+        return { label: weekday + ', ' + calendarDate + ' \u00b7 ' + time, iso: date.toISOString() };
+    }
+
+    function appendMessageContent(container, body) {
+        var cleaned = cleanReply(body);
+        var blocks = cleaned ? cleaned.split(/\n{2,}/) : [''];
+
+        blocks.forEach(function (block) {
+            var lines = block.split('\n').map(function (line) { return line.trim(); }).filter(Boolean);
+            var isBulletList = lines.length > 0 && lines.every(function (line) { return /^[-*\u2022]\s+/.test(line); });
+            var isNumberedList = lines.length > 0 && lines.every(function (line) { return /^\d+[.)]\s+/.test(line); });
+            if (isBulletList || isNumberedList) {
+                var list = document.createElement(isNumberedList ? 'ol' : 'ul');
+                lines.forEach(function (line) {
+                    var listItem = document.createElement('li');
+                    listItem.textContent = line.replace(isNumberedList ? /^\d+[.)]\s+/ : /^[-*\u2022]\s+/, '');
+                    list.appendChild(listItem);
+                });
+                container.appendChild(list);
+                return;
+            }
+
+            var paragraph = document.createElement('p');
+            paragraph.textContent = lines.join('\n').replace(/^#{1,6}\s+/, '');
+            container.appendChild(paragraph);
+        });
+    }
+
+    function updateMessageTimestamp(item, createdAt) {
+        var timestamp = formatTimestamp(createdAt);
+        var time = item.querySelector('time');
+        if (!time) return;
+        time.dateTime = timestamp.iso;
+        time.textContent = timestamp.label;
+    }
+
+    function addMessage(body, actor, uuid, createdAt) {
+        var existing = null;
+        if (uuid) {
+            Array.prototype.some.call(messages.children, function (message) {
+                if (message.dataset.messageId !== uuid) return false;
+                existing = message;
+                return true;
+            });
+        }
+        if (existing) {
+            updateMessageTimestamp(existing, createdAt);
+            return existing;
+        }
+
+        var item = document.createElement('article');
         item.className = 'nd-widget-message ' + (actor === 'visitor' ? 'is-visitor' : actor === 'status' ? 'is-status' : 'is-ai');
-        item.textContent = body || '';
+        var content = document.createElement('div');
+        content.className = 'nd-widget-message-content';
+        appendMessageContent(content, body);
+        item.appendChild(content);
+        if (actor !== 'status') {
+            var time = document.createElement('time');
+            time.className = 'nd-widget-message-time';
+            item.appendChild(time);
+            updateMessageTimestamp(item, createdAt);
+        }
         if (uuid) item.dataset.messageId = uuid;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
         return item;
+    }
+
+    function showTypingIndicator() {
+        if (state.typingIndicator) return;
+        var item = document.createElement('div');
+        item.className = 'nd-widget-message is-ai is-typing';
+        item.setAttribute('role', 'status');
+        item.setAttribute('aria-label', 'Assistant is typing');
+        var label = document.createElement('span');
+        label.className = 'nd-widget-typing-label';
+        label.textContent = 'Typing';
+        var dots = document.createElement('span');
+        dots.className = 'nd-widget-typing-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        for (var index = 0; index < 3; index++) dots.appendChild(document.createElement('i'));
+        item.appendChild(label);
+        item.appendChild(dots);
+        messages.appendChild(item);
+        state.typingIndicator = item;
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function syncTypingIndicator() {
+        if (Object.keys(state.pendingReplies).length > 0) {
+            showTypingIndicator();
+            return;
+        }
+        if (state.typingIndicator) state.typingIndicator.remove();
+        state.typingIndicator = null;
+    }
+
+    function finishPendingReply(messageUuid) {
+        if (messageUuid) delete state.pendingReplies[messageUuid];
+        syncTypingIndicator();
     }
 
     function newUuid() {
@@ -121,7 +243,7 @@
     function showChat() {
         prechatStage.hidden = true;
         chatStage.hidden = false;
-        if (!messages.children.length) addMessage(state.widget.welcome_message, 'ai');
+        if (!messages.children.length) addMessage(state.widget.welcome_message, 'ai', null, new Date().toISOString());
         starters.replaceChildren();
         (state.widget.starter_questions || []).forEach(function (question) {
             var button = document.createElement('button');
@@ -130,7 +252,7 @@
             button.addEventListener('click', function () { sendMessage(question); });
             starters.appendChild(button);
         });
-        handoff.hidden = !state.widget.handoff_available || !state.conversation;
+        syncConversationControls();
         messageInput.focus();
     }
 
@@ -163,22 +285,31 @@
     async function poll(messageUuid, attempts) {
         if (!state.conversation || attempts > 60) {
             if (attempts > 60) setNotice('The answer is taking longer than expected. Please try again shortly.', true);
+            finishPendingReply(messageUuid);
             return;
         }
         try {
             var url = root.dataset.conversationUrl.replace('__CONVERSATION__', encodeURIComponent(state.conversation));
             var data = await request(url, { method: 'GET' });
             var answered = false;
+            state.conversationStatus = data.status;
             (data.messages || []).forEach(function (message) {
-                addMessage(message.body, message.actor, message.uuid);
+                addMessage(message.body, message.actor, message.uuid, message.created_at);
                 if (message.reply_to_uuid === messageUuid) answered = true;
             });
-            handoff.hidden = !state.widget.handoff_available;
+            if (answered) finishPendingReply(messageUuid);
+            syncConversationControls();
             if (!answered && data.status === 'open_ai') window.setTimeout(function () { poll(messageUuid, attempts + 1); }, 1000);
-            if (!answered && data.status !== 'open_ai') setNotice('A support person has been requested.');
+            if (data.status !== 'open_ai') {
+                finishPendingReply(messageUuid);
+                setNotice('A support person has been requested. Reload the chat to start a new AI conversation.');
+            }
         } catch (error) {
             if (attempts < 3) window.setTimeout(function () { poll(messageUuid, attempts + 1); }, 1200);
-            else setNotice(error.message, true);
+            else {
+                finishPendingReply(messageUuid);
+                setNotice(error.message, true);
+            }
         }
     }
 
@@ -186,10 +317,11 @@
         text = String(text || '').trim();
         if (!text || state.sending || !state.token) return;
         state.sending = true;
-        composer.querySelector('button').disabled = true;
+        syncConversationControls();
         starters.replaceChildren();
-        var optimistic = addMessage(text, 'visitor');
+        var optimistic = addMessage(text, 'visitor', null, new Date().toISOString());
         messageInput.value = '';
+        showTypingIndicator();
         setNotice('Preparing an answer…');
         try {
             var data = await request(root.dataset.messageUrl, {
@@ -197,16 +329,21 @@
                 body: JSON.stringify({ message: text, idempotency_key: newUuid(), conversation_uuid: state.conversation })
             });
             state.conversation = data.conversation_uuid;
+            state.conversationStatus = 'open_ai';
             optimistic.dataset.messageId = data.message_uuid;
+            state.pendingReplies[data.message_uuid] = true;
+            syncTypingIndicator();
             setNotice('');
-            handoff.hidden = !state.widget.handoff_available;
+            syncConversationControls();
             poll(data.message_uuid, 0);
         } catch (error) {
             optimistic.remove();
+            syncTypingIndicator();
+            messageInput.value = text;
             setNotice(error.message, true);
         } finally {
             state.sending = false;
-            composer.querySelector('button').disabled = false;
+            syncConversationControls();
         }
     }
 
@@ -237,9 +374,12 @@
         if (!state.conversation) return;
         handoff.disabled = true;
         try {
-            await request(root.dataset.handoffUrl, { method: 'POST', body: JSON.stringify({ conversation_uuid: state.conversation }) });
-            setNotice('A support person has been requested.');
-            handoff.hidden = true;
+            var data = await request(root.dataset.handoffUrl, { method: 'POST', body: JSON.stringify({ conversation_uuid: state.conversation }) });
+            state.conversationStatus = data.status;
+            state.pendingReplies = Object.create(null);
+            syncTypingIndicator();
+            setNotice('A support person has been requested. Reload the chat to start a new AI conversation.');
+            syncConversationControls();
         } catch (error) { setNotice(error.message, true); handoff.disabled = false; }
     });
 

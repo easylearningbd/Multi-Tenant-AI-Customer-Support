@@ -75,6 +75,8 @@ test('dependency free loader and public pages expose only safe widget data', fun
     $this->get(route('widgets.hosted.show', $widget->public_id))
         ->assertOk()
         ->assertSee($bot->display_name)
+        ->assertSee('css/neuraldesk-widget.css?v=', escape: false)
+        ->assertSee('js/neuraldesk-widget.js?v=', escape: false)
         ->assertDontSee('<script>alert(1)</script>', escape: false)
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
@@ -287,13 +289,24 @@ test('public handoff transitions only the visitor session conversation and stops
     ])->assertOk()->assertJsonPath('data.status', ConversationStatus::NEEDS_HUMAN->value);
 
     $conversation = Conversation::query()->sole();
+    $handoffRequestedAt = $conversation->handoff_requested_at;
     expect($conversation->fresh()->status)->toBe(ConversationStatus::NEEDS_HUMAN)
         ->and($conversation->fresh()->handoff_requested_at)->not->toBeNull();
     $this->withToken($session['token'])->postJson(route('widgets.api.messages.store', $widget->public_id), [
         'message' => 'AI must not answer this',
         'idempotency_key' => (string) Str::uuid(),
         'conversation_uuid' => $conversation->uuid,
-    ])->assertUnprocessable();
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('conversation');
+
+    $this->withToken($session['token'])->postJson(route('widgets.api.handoff.store', $widget->public_id), [
+        'conversation_uuid' => $conversation->uuid,
+    ])->assertOk()->assertJsonPath('data.status', ConversationStatus::NEEDS_HUMAN->value);
+
+    expect($conversation->fresh()->handoff_requested_at->equalTo($handoffRequestedAt))->toBeTrue();
+    $this->assertDatabaseCount('conversation_messages', 1);
+    $this->assertDatabaseCount('usage_ledgers', 1);
+    Queue::assertPushed(GenerateConversationReply::class, 1);
 });
 
 test('widget session creation is rate limited by public widget and address', function () {

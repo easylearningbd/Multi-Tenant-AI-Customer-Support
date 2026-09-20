@@ -211,13 +211,13 @@ Laravel Breeze supplies the authentication foundation, but authorization and ten
 1. Visitor sends a message.
 2. System validates widget, bot, workspace, origin policy, quota, and rate limit.
 3. Message is stored before generation begins.
-4. Query is normalized and optionally rewritten for retrieval.
+4. Query is normalized and rewritten as a standalone retrieval question using up to the previous five messages.
 5. Vector search retrieves tenant- and bot-authorized chunks.
-6. Results are filtered, ranked, deduplicated, and checked against a confidence threshold.
+6. The five highest-similarity authorized results are ranked without a minimum-score refusal gate.
 7. System constructs a prompt containing bot behavior, conversation context, retrieved evidence, and response rules.
 8. OpenAI streams a response.
 9. System stores the answer, citations, model, tokens, cost estimate, retrieval trace, latency, and confidence.
-10. If evidence is insufficient or policy requires it, the bot gives the configured fallback and offers human handoff.
+10. If context is insufficient, the model explains that naturally and offers human handoff without fabricating an answer.
 
 ### 7.3 Human handoff
 
@@ -470,7 +470,7 @@ Super Admin-manageable areas include:
 
 - Always filter retrieval by `workspace_id` and authorized bot/knowledge bases before ranking.
 - Support vector similarity and optional hybrid keyword retrieval.
-- Apply configurable top-K retrieval, minimum score, deduplication, diversity, and optional reranking.
+- Retrieve the top five authorized chunks without a minimum-score refusal gate; retain scores for evaluation, deduplication, diversity, and optional reranking.
 - Exclude disabled, deleted, stale, or superseded chunks.
 - Respect the source version used for the answer.
 - Treat retrieved source content as untrusted data, not system instructions.
@@ -483,10 +483,10 @@ The prompt package should include:
 - Platform safety and grounding rules.
 - Subscriber-configured bot persona, tone, language, and fallback policy.
 - Relevant conversation history within a controlled token budget.
-- Retrieved evidence with stable source identifiers.
+- Retrieved context; keep stable source identifiers in internal metadata rather than model-visible citation tags.
 - The current user question.
 - Explicit instruction to ignore commands embedded inside retrieved documents.
-- Required output and citation format.
+- Required conversational output format without model-visible citation markers.
 
 ### 10.4 Generation
 
@@ -502,8 +502,8 @@ The prompt package should include:
 ### 10.5 Grounding and fallback
 
 - When “answer only from knowledge base” is enabled, unsupported claims are forbidden.
-- Low-confidence retrieval triggers the configured fallback rather than model improvisation.
-- Fallback may offer human handoff.
+- Similarity scores do not bypass generation; the model decides whether the supplied context answers the question.
+- When context is insufficient, the model must say so warmly, avoid unsupported claims, and offer human handoff.
 - Citations link an answer to exact stored source/chunk versions.
 - A source deletion policy determines whether historical citations remain as tombstoned metadata or are removed for privacy.
 
@@ -939,7 +939,7 @@ Broadcast and listener authorization must retain workspace scope.
 
 - Tenant A cannot retrieve Tenant B's source, vector, message, lead, invoice, or broadcast event.
 - A disabled/deleted source stops influencing new answers.
-- Low-confidence retrieval produces fallback/handoff, not unsupported claims.
+- Low-confidence retrieval still reaches the model, which must avoid unsupported claims and offer handoff when context is insufficient.
 - AI stops responding after a human takes over.
 - An agent's private note never appears in the visitor channel.
 - Plan limits cannot be bypassed through direct HTTP requests or concurrent operations.
@@ -1004,7 +1004,7 @@ The initial production release is acceptable only when:
 - Tenant isolation is covered by automated tests across all tenant-owned domains.
 - A subscriber can register, create/train a bot, test it, deploy it, and receive grounded answers.
 - File/text/Q&A/URL knowledge sources complete an observable asynchronous training lifecycle.
-- Answers retain citations and retrieval metadata, and unsupported questions follow fallback policy.
+- Answers retain internal citation and retrieval metadata, and unsupported questions receive a conversational limitation-and-handoff response.
 - Widget and hosted chat use the same authoritative conversation/RAG pipeline.
 - Visitors, leads, conversations, assignments, private notes, handoff, and resolution work end to end.
 - Plans and limits are configurable and enforced server-side.

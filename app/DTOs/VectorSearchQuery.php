@@ -11,7 +11,7 @@ final readonly class VectorSearchQuery
         public array $embedding,
         public string $embeddingModel,
         public int $topK = 5,
-        public float $minimumScore = 0.0,
+        public ?float $minimumScore = null,
         public array $sourceIds = [],
     ) {}
 }

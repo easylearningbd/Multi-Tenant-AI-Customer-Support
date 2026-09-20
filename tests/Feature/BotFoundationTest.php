@@ -60,6 +60,7 @@ test('default bot settings are valid idempotent and protected by a unique constr
     expect($second->is($first))->toBeTrue()
         ->and($bot->fresh()->setting->is($first))->toBeTrue()
         ->and($first->tone)->toBe(BotTone::FRIENDLY)
+        ->and($first->kb_confidence)->toBe('0.200')
         ->and($first->model_override)->toBeNull();
 
     $this->assertDatabaseCount('bot_settings', 1);

@@ -32,12 +32,16 @@ final class OpenAIEmbeddingService implements EmbeddingProviderInterface
         $last = null;
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             try {
-                $response = Http::baseUrl(rtrim((string) config('neuraldesk.ai.openai.base_url'), '/'))
+                $request = Http::baseUrl(rtrim((string) config('neuraldesk.ai.openai.base_url'), '/'))
                     ->withToken($key)
                     ->acceptJson()
                     ->connectTimeout((int) config('neuraldesk.ai.openai.connect_timeout', 10))
-                    ->timeout((int) config('neuraldesk.ai.openai.request_timeout', 60))
-                    ->post('/embeddings', $payload);
+                    ->timeout((int) config('neuraldesk.ai.openai.request_timeout', 60));
+                $caBundle = trim((string) config('neuraldesk.ai.openai.ca_bundle'));
+                if ($caBundle !== '') {
+                    $request->withOptions(['verify' => $caBundle]);
+                }
+                $response = $request->post('/embeddings', $payload);
                 if ($response->successful()) {
                     $data = collect($response->json('data', []))->sortBy('index')->values();
                     $vectors = $data->pluck('embedding')->all();

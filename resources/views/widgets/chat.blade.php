@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title>{{ __('Chat with :bot', ['bot' => $widget->bot->display_name]) }}</title>
-    <link rel="stylesheet" href="{{ asset('css/neuraldesk-widget.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/neuraldesk-widget.css') }}?v={{ filemtime(public_path('css/neuraldesk-widget.css')) }}">
 </head>
 <body class="nd-widget-body {{ $embedded ? 'is-embedded' : 'is-hosted' }}">
     <main
@@ -57,6 +57,6 @@
         </section>
         <noscript>{{ __('JavaScript is required to use this support chat.') }}</noscript>
     </main>
-    <script src="{{ asset('js/neuraldesk-widget.js') }}" defer></script>
+    <script src="{{ asset('js/neuraldesk-widget.js') }}?v={{ filemtime(public_path('js/neuraldesk-widget.js')) }}" defer></script>
 </body>
 </html>
