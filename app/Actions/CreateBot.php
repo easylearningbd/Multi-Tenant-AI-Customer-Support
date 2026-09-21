@@ -2,20 +2,18 @@
 
 namespace App\Actions;
 
+use App\Enums\PlanMetric;
 use App\Models\Bot;
 use App\Models\User;
 use App\Services\BotDefaults;
-use App\Services\CurrentSubscriptionResolver;
-use App\Services\PlanLimitService;
+use App\Services\PlanUsageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 final class CreateBot
 {
     public function __construct(
-        private readonly CurrentSubscriptionResolver $subscriptions,
-        private readonly PlanLimitService $limits,
+        private readonly PlanUsageService $usage,
         private readonly BotDefaults $defaults,
         private readonly CreateDefaultBotSettings $createDefaultSettings,
         private readonly EnsureBotWidget $ensureBotWidget,
@@ -25,19 +23,10 @@ final class CreateBot
     {
         return DB::transaction(function () use ($subscriber, $name): Bot {
             $owner = User::query()->subscribers()->lockForUpdate()->findOrFail($subscriber->id);
-            $subscription = $this->subscriptions->for($owner);
-
-            if (! $subscription || ! $subscription->grantsEntitlements()) {
-                throw ValidationException::withMessages([
-                    'plan_limit' => __('An active subscription is required before creating a bot.'),
-                ]);
-            }
-
-            $this->limits->ensureAllows(
-                $subscription,
-                'chatbots_limit',
-                $owner->bots()->count(),
-            );
+            $subscription = $this->usage->activeSubscription($owner);
+            $activeBots = $owner->bots()->where('is_active', true)->count();
+            $this->usage->ensureWithinLimit($subscription, PlanMetric::CHATBOTS, $activeBots);
+            $this->usage->ensureWithinLimit($subscription, PlanMetric::KNOWLEDGE_BASES, $activeBots);
 
             $normalizedName = Str::squish($name);
             $bot = new Bot;

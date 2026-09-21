@@ -26,6 +26,13 @@
             </div>
         @endif
 
+        @unless ($canAddSource)
+            <div class="alert alert-warning d-flex justify-content-between align-items-center gap-3" role="status">
+                <span>{{ __('Your current plan has no remaining knowledge-source capacity.') }}</span>
+                <a class="btn btn-sm btn-dark" href="{{ route('billing.index') }}">{{ __('View plans') }}</a>
+            </div>
+        @endunless
+
         <section class="nd-sub-training-text-card" aria-labelledby="knowledge-text-title">
             <div class="nd-sub-training-explainer">
                 <span><i class="iconoir-shield-check" aria-hidden="true"></i></span>
@@ -38,7 +45,7 @@
                 <input class="form-control" type="text" name="name" value="{{ old('name') }}" maxlength="180" placeholder="{{ __('Optional source title') }}">
                 <textarea class="form-control @error('text') is-invalid @enderror" id="knowledge-text" name="text" rows="8" maxlength="500000" placeholder="{{ __('Example: Refunds are available within 30 days for paid plans.') }}" required>{{ old('text') }}</textarea>
                 @error('text')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                <div><small>{{ __('Keep each entry specific so answers stay accurate.') }}</small><button class="nd-sub-training-dark" type="submit">{{ __('Train text') }}</button></div>
+                <div><small>{{ __('Keep each entry specific so answers stay accurate.') }}</small><button class="nd-sub-training-dark" type="submit" @disabled(! $canAddSource)>{{ __('Train text') }}</button></div>
             </form>
         </section>
 
@@ -52,9 +59,9 @@
                         <span>{{ __('PDF, DOCX, MD, TXT, CSV up to 20 MB each') }}</span>
                         <span class="nd-sub-training-browse">{{ __('Browse files') }}</span>
                     </label>
-                    <input id="knowledge-files" name="files[]" type="file" accept=".pdf,.docx,.md,.txt,.csv" multiple required data-knowledge-files>
+                    <input id="knowledge-files" name="files[]" type="file" accept=".pdf,.docx,.md,.txt,.csv" multiple required data-knowledge-files @disabled(! $canUploadFile)>
                     <p data-selected-files aria-live="polite">{{ __('No files selected') }}</p>
-                    <button class="nd-sub-training-dark" type="submit">{{ __('Upload and train') }}</button>
+                    <button class="nd-sub-training-dark" type="submit" @disabled(! $canUploadFile)>{{ __('Upload and train') }}</button>
                 </form>
             </section>
 
@@ -68,7 +75,7 @@
                         <div><label class="visually-hidden" for="website-url">{{ __('Public URL') }}</label><input class="form-control @error('url') is-invalid @enderror" id="website-url" type="url" name="url" value="{{ old('url') }}" placeholder="https://docs.example.com" required>@error('url')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                         <div><label class="visually-hidden" for="page-limit">{{ __('Page limit') }}</label><input class="form-control" id="page-limit" type="number" name="page_limit" min="1" max="{{ config('neuraldesk.knowledge.website.maximum_page_limit') }}" value="{{ old('page_limit', config('neuraldesk.knowledge.website.default_page_limit')) }}" required></div>
                     </div>
-                    <button class="nd-sub-training-dark" type="submit">{{ __('Sync website') }}</button>
+                    <button class="nd-sub-training-dark" type="submit" @disabled(! $canAddSource)>{{ __('Sync website') }}</button>
                 </form>
             </section>
         </div>

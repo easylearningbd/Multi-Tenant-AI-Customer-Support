@@ -15,17 +15,17 @@ final class SubscriberBillingData
     public function __construct(
         private readonly CurrentSubscriptionResolver $subscriptions,
         private readonly BankTransferConfiguration $bankTransfer,
+        private readonly PlanUsageService $usage,
     ) {}
 
     /** @return array<string, mixed> */
     public function for(User $billingOwner): array
     {
         $subscription = $this->subscriptions->for($billingOwner);
-        $usageValues = $this->usageFor($billingOwner, $subscription);
 
         return [
             'subscription' => $subscription,
-            'current' => $this->currentPlan($subscription, $usageValues),
+            'current' => $this->currentPlan($billingOwner, $subscription),
             'availablePlans' => $this->availablePlans($subscription, $billingOwner),
             'invoices' => $billingOwner->payments()
                 ->with('invoice:id,payment_id,number,status,issued_at,paid_at')
@@ -38,8 +38,7 @@ final class SubscriberBillingData
         ];
     }
 
-    /** @param array<string, int> $usage */
-    private function currentPlan(?Subscription $subscription, array $usage): ?array
+    private function currentPlan(User $billingOwner, ?Subscription $subscription): ?array
     {
         if (! $subscription) {
             return null;
@@ -53,20 +52,7 @@ final class SubscriberBillingData
             'statusLabel' => $status->label(),
             'dateLabel' => $this->dateLabel($subscription, $status),
             'features' => $subscription->featureList(),
-            'usage' => collect(Plan::LIMITS)->map(function (string $label, string $key) use ($subscription, $usage): array {
-                $used = $usage[$key] ?? 0;
-                $limit = $subscription->limitFor($key);
-
-                return [
-                    'key' => $key,
-                    'label' => __($label),
-                    'used' => $used,
-                    'limit' => $limit,
-                    'unlimited' => $limit === 0,
-                    'percentage' => $limit === 0 ? 0 : min(100, (int) round(($used / $limit) * 100)),
-                    'sourceAvailable' => false,
-                ];
-            })->values(),
+            'usage' => $this->usage->summary($billingOwner, $subscription),
         ];
     }
 
@@ -130,13 +116,5 @@ final class SubscriberBillingData
                     'features' => array_values($plan->features ?? []),
                 ];
             });
-    }
-
-    /** @return array<string, int> */
-    private function usageFor(User $billingOwner, ?Subscription $subscription): array
-    {
-        // Product usage tables are not present yet. Keep explicit owner context here so each
-        // future aggregate is added as an owner-scoped query rather than as a global count.
-        return array_fill_keys(array_keys(Plan::LIMITS), 0);
     }
 }

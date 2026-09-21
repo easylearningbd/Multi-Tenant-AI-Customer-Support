@@ -6,6 +6,8 @@ use App\Models\Bot;
 use App\Models\BotPrechatField;
 use App\Models\BotSetting;
 use App\Models\BotStarterQuestion;
+use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
 
 function validBotSettingsPayload(Bot $bot): array
@@ -83,6 +85,8 @@ test('subscriber updates identity behavior questions and prechat fields atomical
     $subscriber = User::factory()->subscriber()->create();
     $other = User::factory()->subscriber()->create();
     $bot = Bot::factory()->for($subscriber)->create(['is_active' => false]);
+    $plan = Plan::factory()->create();
+    Subscription::factory()->for($subscriber)->for($plan)->create(['plan_snapshot' => $plan->subscriptionSnapshot()]);
     BotSetting::factory()->for($bot)->create();
     BotStarterQuestion::factory()->for($bot)->create(['question' => 'Old question', 'position' => 1]);
     $originalPublicId = $bot->public_id;

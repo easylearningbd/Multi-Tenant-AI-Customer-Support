@@ -7,6 +7,8 @@ use App\Contracts\VectorStoreInterface;
 use App\Enums\KnowledgeSourceStatus;
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeSource;
+use App\Models\User;
+use App\Services\PlanUsageService;
 use App\Services\SourceTextExtractor;
 use App\Services\TextChunker;
 use App\Services\TextNormalizer;
@@ -53,11 +55,17 @@ final class ProcessKnowledgeSource implements ShouldBeUnique, ShouldQueue
         TextChunker $chunker,
         EmbeddingProviderInterface $embeddings,
         VectorStoreInterface $vectors,
+        PlanUsageService $usage,
     ): void {
         $source = $this->source();
         if (! $source || $source->processing_token !== $this->processingToken) {
             return;
         }
+        $owner = User::query()->subscribers()->find($this->tenantId);
+        if (! $owner) {
+            return;
+        }
+        $usage->activeSubscription($owner);
 
         $generation = $this->processingToken;
         $source->forceFill(['status' => KnowledgeSourceStatus::EXTRACTING, 'failure_message' => null])->save();

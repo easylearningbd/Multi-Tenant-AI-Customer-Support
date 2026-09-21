@@ -9,6 +9,7 @@ use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use InvalidArgumentException;
 
 final class Subscription extends Model
@@ -59,6 +60,12 @@ final class Subscription extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    /** @return HasMany<UsageCounter, $this> */
+    public function usageCounters(): HasMany
+    {
+        return $this->hasMany(UsageCounter::class);
     }
 
     public function effectiveStatus(?CarbonInterface $at = null): SubscriptionStatus

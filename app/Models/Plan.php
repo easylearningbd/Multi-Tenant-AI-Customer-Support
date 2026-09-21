@@ -8,6 +8,7 @@ use Database\Factories\PlanFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use InvalidArgumentException;
 
 final class Plan extends Model
@@ -55,6 +56,12 @@ final class Plan extends Model
     public function scopeOrdered(Builder $query): Builder
     {
         return $query->orderBy('sort_order')->orderBy('name')->orderBy('id');
+    }
+
+    /** @return HasMany<UsageCounter, $this> */
+    public function usageCounters(): HasMany
+    {
+        return $this->hasMany(UsageCounter::class);
     }
 
     public function scopeAvailableForSelection(Builder $query): Builder

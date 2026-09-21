@@ -159,6 +159,12 @@ class User extends Authenticatable
         return $this->hasMany(UsageLedger::class);
     }
 
+    /** @return HasMany<UsageCounter, $this> */
+    public function usageCounters(): HasMany
+    {
+        return $this->hasMany(UsageCounter::class);
+    }
+
     public function isBillingOwner(): bool
     {
         return $this->role === UserRole::USER;

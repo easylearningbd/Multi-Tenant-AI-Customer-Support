@@ -5,12 +5,13 @@ namespace App\Actions;
 use App\Contracts\VectorStoreInterface;
 use App\Enums\KnowledgeSourceStatus;
 use App\Enums\KnowledgeSourceType;
+use App\Enums\PlanMetric;
 use App\Jobs\ProcessKnowledgeSource;
 use App\Models\Bot;
 use App\Models\KnowledgeSource;
 use App\Models\User;
-use App\Services\CurrentSubscriptionResolver;
-use App\Services\PlanLimitService;
+use App\Services\KnowledgeStorageUsageService;
+use App\Services\PlanUsageService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,8 +22,8 @@ use Throwable;
 final class ManageKnowledgeSources
 {
     public function __construct(
-        private readonly CurrentSubscriptionResolver $subscriptions,
-        private readonly PlanLimitService $limits,
+        private readonly PlanUsageService $usage,
+        private readonly KnowledgeStorageUsageService $storageUsage,
         private readonly VectorStoreInterface $vectors,
     ) {}
 
@@ -39,8 +40,7 @@ final class ManageKnowledgeSources
     public function createFiles(User $user, Bot $bot, array $files): array
     {
         $this->assertOwnership($user, $bot);
-        $created = [];
-        foreach ($files as $file) {
+        $descriptors = collect($files)->map(function (UploadedFile $file) use ($user, $bot): array {
             $extension = strtolower($file->getClientOriginalExtension());
             $type = match ($extension) {
                 'txt' => KnowledgeSourceType::TXT,
@@ -50,27 +50,64 @@ final class ManageKnowledgeSources
                 'docx' => KnowledgeSourceType::DOCX,
                 default => throw ValidationException::withMessages(['files' => __('One or more files use an unsupported extension.')]),
             };
-            $path = 'user-'.$user->id.'/bot-'.$bot->id.'/'.Str::uuid().'.'.$extension;
-            $disk = Storage::disk(config('neuraldesk.storage.knowledge_disk'));
-            $stored = $disk->putFileAs(dirname($path), $file, basename($path));
-            if (! is_string($stored)) {
-                throw ValidationException::withMessages(['files' => __('The source file could not be stored safely.')]);
-            }
-            try {
-                $created[] = $this->create($user, $bot, [
+
+            return [
+                'file' => $file,
+                'path' => 'user-'.$user->id.'/bot-'.$bot->id.'/'.Str::uuid().'.'.$extension,
+                'attributes' => [
                     'type' => $type,
                     'name' => Str::limit(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME), 180, ''),
                     'original_filename' => Str::limit($file->getClientOriginalName(), 255, ''),
-                    'file_path' => $stored,
                     'file_size_bytes' => max(0, (int) $file->getSize()),
-                ]);
-            } catch (Throwable $exception) {
-                $disk->delete($stored);
-                throw $exception;
-            }
-        }
+                ],
+            ];
+        })->values();
+        $totalBytes = (int) $descriptors->sum(fn (array $descriptor): int => $descriptor['attributes']['file_size_bytes']);
+        $reservation = $this->storageUsage->reserve($user, $bot, $totalBytes, $descriptors->count());
+        $disk = Storage::disk(config('neuraldesk.storage.knowledge_disk'));
+        $storedPaths = [];
 
-        return $created;
+        try {
+            $descriptors = $descriptors->map(function (array $descriptor) use ($disk, &$storedPaths): array {
+                $stored = $disk->putFileAs(dirname($descriptor['path']), $descriptor['file'], basename($descriptor['path']));
+                if (! is_string($stored)) {
+                    throw ValidationException::withMessages(['files' => __('The source file could not be stored safely.')]);
+                }
+                $storedPaths[] = $stored;
+                $descriptor['attributes']['file_path'] = $stored;
+
+                return $descriptor;
+            });
+
+            return DB::transaction(function () use ($user, $bot, $descriptors, $reservation): array {
+                $owner = User::query()->subscribers()->lockForUpdate()->findOrFail($user->id);
+                $subscription = $this->usage->activeSubscription($owner);
+                if ($reservation && $reservation->subscription_id !== $subscription->id) {
+                    throw ValidationException::withMessages(['plan_limit' => __('Your subscription changed. Please upload the files again.')]);
+                }
+                $this->usage->ensureWithinLimit(
+                    $subscription,
+                    PlanMetric::KNOWLEDGE_SOURCES,
+                    $owner->knowledgeSources()->count(),
+                    $descriptors->count(),
+                );
+
+                $created = $descriptors->map(fn (array $descriptor): KnowledgeSource => $this->newSource($owner, $bot, $descriptor['attributes']))->all();
+                if ($reservation) {
+                    $this->storageUsage->commit($reservation, $created[0] ?? null);
+                }
+
+                return $created;
+            }, 3);
+        } catch (Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                $disk->delete($path);
+            }
+            if ($reservation) {
+                $this->storageUsage->release($reservation);
+            }
+            throw $exception;
+        }
     }
 
     public function createWebsite(User $user, Bot $bot, string $url, bool $sitemap, int $pageLimit): KnowledgeSource
@@ -86,15 +123,21 @@ final class ManageKnowledgeSources
     public function retry(User $user, Bot $bot, KnowledgeSource $source): KnowledgeSource
     {
         $this->assertSource($user, $bot, $source);
-        $token = (string) Str::uuid();
-        $source->forceFill([
-            'status' => KnowledgeSourceStatus::QUEUED,
-            'failure_message' => null,
-            'processing_token' => $token,
-        ])->save();
-        ProcessKnowledgeSource::dispatch($source->id, $user->id, $bot->id, $token)->afterCommit();
 
-        return $source;
+        return DB::transaction(function () use ($user, $bot, $source): KnowledgeSource {
+            $owner = User::query()->subscribers()->lockForUpdate()->findOrFail($user->id);
+            $this->usage->activeSubscription($owner);
+            $locked = KnowledgeSource::query()->ownedBy($owner)->forBot($bot)->lockForUpdate()->findOrFail($source->id);
+            $token = (string) Str::uuid();
+            $locked->forceFill([
+                'status' => KnowledgeSourceStatus::QUEUED,
+                'failure_message' => null,
+                'processing_token' => $token,
+            ])->save();
+            ProcessKnowledgeSource::dispatch($locked->id, $owner->id, $bot->id, $token)->afterCommit();
+
+            return $locked;
+        }, 3);
     }
 
     public function retryAll(User $user, Bot $bot): int
@@ -134,30 +177,32 @@ final class ManageKnowledgeSources
 
         return DB::transaction(function () use ($user, $bot, $attributes): KnowledgeSource {
             $owner = User::query()->subscribers()->lockForUpdate()->findOrFail($user->id);
-            $subscription = $this->subscriptions->for($owner);
-            if (! $subscription || ! $subscription->grantsEntitlements()) {
-                throw ValidationException::withMessages(['plan_limit' => __('An active subscription is required before training knowledge.')]);
-            }
-            $this->limits->ensureAllows($subscription, 'knowledge_sources_limit', $owner->knowledgeSources()->count());
-            $requestedBytes = (int) ($attributes['file_size_bytes'] ?? 0);
-            if ($requestedBytes > 0) {
-                $usedMb = (int) ceil($owner->knowledgeSources()->sum('file_size_bytes') / 1048576);
-                $this->limits->ensureAllows($subscription, 'storage_mb_limit', $usedMb, max(1, (int) ceil($requestedBytes / 1048576)));
-            }
+            $subscription = $this->usage->activeSubscription($owner);
+            $this->usage->ensureWithinLimit(
+                $subscription,
+                PlanMetric::KNOWLEDGE_SOURCES,
+                $owner->knowledgeSources()->count(),
+            );
 
-            $source = new KnowledgeSource;
-            $source->uuid = (string) Str::uuid();
-            $source->user_id = $owner->id;
-            $source->bot_id = $bot->id;
-            $source->created_by = $owner->id;
-            $source->fill($attributes);
-            $source->status = KnowledgeSourceStatus::QUEUED;
-            $source->processing_token = (string) Str::uuid();
-            $source->save();
-            ProcessKnowledgeSource::dispatch($source->id, $owner->id, $bot->id, $source->processing_token)->afterCommit();
-
-            return $source;
+            return $this->newSource($owner, $bot, $attributes);
         }, 3);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function newSource(User $owner, Bot $bot, array $attributes): KnowledgeSource
+    {
+        $source = new KnowledgeSource;
+        $source->uuid = (string) Str::uuid();
+        $source->user_id = $owner->id;
+        $source->bot_id = $bot->id;
+        $source->created_by = $owner->id;
+        $source->fill($attributes);
+        $source->status = KnowledgeSourceStatus::QUEUED;
+        $source->processing_token = (string) Str::uuid();
+        $source->save();
+        ProcessKnowledgeSource::dispatch($source->id, $owner->id, $bot->id, $source->processing_token)->afterCommit();
+
+        return $source;
     }
 
     private function assertOwnership(User $user, Bot $bot): void

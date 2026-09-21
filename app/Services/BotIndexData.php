@@ -14,9 +14,13 @@ final class BotIndexData
     {
         $subscription = $this->subscriptions->for($subscriber);
         $hasEntitlements = $subscription?->grantsEntitlements() === true;
-        $used = $subscriber->bots()->count();
+        $used = $subscriber->bots()->where('is_active', true)->count();
         $limit = $hasEntitlements ? $subscription->limitFor('chatbots_limit') : null;
-        $unlimited = $limit === 0;
+        $knowledgeBaseLimit = $hasEntitlements ? $subscription->limitFor('knowledge_bases_limit') : null;
+        $unlimited = $limit === 0 && $knowledgeBaseLimit === 0;
+        $effectiveLimit = collect([$limit, $knowledgeBaseLimit])
+            ->filter(fn (?int $value): bool => $value !== null && $value > 0)
+            ->min();
 
         /** @var LengthAwarePaginator $bots */
         $bots = $subscriber->bots()
@@ -30,16 +34,16 @@ final class BotIndexData
             'subscriberPlanName' => $hasEntitlements ? $subscription->planName() : __('No active plan'),
             'capacity' => [
                 'used' => $used,
-                'limit' => $limit,
+                'limit' => $effectiveLimit,
                 'unlimited' => $unlimited,
-                'canCreate' => $hasEntitlements && ($unlimited || $used < $limit),
-                'label' => $limit === null
+                'canCreate' => $hasEntitlements && ($unlimited || $used < $effectiveLimit),
+                'label' => $effectiveLimit === null && ! $unlimited
                     ? __('No active plan')
                     : ($unlimited
                         ? __(':used used · Unlimited', ['used' => number_format($used)])
                         : __(':used of :limit used', [
                             'used' => number_format($used),
-                            'limit' => number_format($limit),
+                            'limit' => number_format($effectiveLimit),
                         ])),
             ],
         ];

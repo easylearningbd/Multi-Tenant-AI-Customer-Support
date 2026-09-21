@@ -2,10 +2,12 @@
 
 namespace App\Actions;
 
+use App\Enums\PlanMetric;
 use App\Models\Bot;
 use App\Models\User;
 use App\Services\BotConfigurationService;
 use App\Services\BotDefaults;
+use App\Services\PlanUsageService;
 use Illuminate\Support\Facades\DB;
 
 final class UpdateBotConfiguration
@@ -13,16 +15,25 @@ final class UpdateBotConfiguration
     public function __construct(
         private readonly BotDefaults $defaults,
         private readonly BotConfigurationService $configuration,
+        private readonly PlanUsageService $usage,
     ) {}
 
     /** @param array<string, mixed> $attributes */
     public function handle(User $owner, Bot $bot, array $attributes): Bot
     {
         return DB::transaction(function () use ($owner, $bot, $attributes): Bot {
+            $lockedOwner = User::query()->subscribers()->lockForUpdate()->findOrFail($owner->id);
             $lockedBot = Bot::query()
-                ->ownedBy($owner)
+                ->ownedBy($lockedOwner)
                 ->lockForUpdate()
                 ->findOrFail($bot->id);
+
+            if (! $lockedBot->is_active && (bool) $attributes['is_active']) {
+                $subscription = $this->usage->activeSubscription($lockedOwner);
+                $activeBots = $lockedOwner->bots()->where('is_active', true)->count();
+                $this->usage->ensureWithinLimit($subscription, PlanMetric::CHATBOTS, $activeBots);
+                $this->usage->ensureWithinLimit($subscription, PlanMetric::KNOWLEDGE_BASES, $activeBots);
+            }
 
             $lockedBot->update([
                 'name' => $attributes['name'],

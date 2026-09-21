@@ -28,7 +28,7 @@ test('limit enforcement returns a user-safe validation error', function () {
     $plan = new Plan(['limits' => planLimits(['knowledge_bases_limit' => 1])]);
 
     expect(fn () => (new PlanLimitService)->ensureAllows($plan, 'knowledge_bases_limit', 1))
-        ->toThrow(ValidationException::class, 'Your current plan limit has been reached.');
+        ->toThrow(ValidationException::class, 'Your current plan allows 1 knowledge base(s).');
 });
 
 function planLimits(array $overrides = []): array

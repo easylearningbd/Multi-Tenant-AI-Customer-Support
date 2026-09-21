@@ -55,6 +55,11 @@ final class UsageLedger extends Model
         return $this->belongsTo(Subscription::class);
     }
 
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class);
@@ -63,5 +68,10 @@ final class UsageLedger extends Model
     public function sourceMessage(): BelongsTo
     {
         return $this->belongsTo(ConversationMessage::class, 'source_message_id');
+    }
+
+    public function knowledgeSource(): BelongsTo
+    {
+        return $this->belongsTo(KnowledgeSource::class);
     }
 }

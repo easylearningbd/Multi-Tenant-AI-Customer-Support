@@ -35,15 +35,15 @@
 
                         <div class="nd-sub-usage-grid">
                             @foreach ($current['usage'] as $usage)
-                                <article class="nd-sub-usage-item">
+                                <article class="nd-sub-usage-item is-{{ $usage['state'] }}">
                                     <div>
                                         <h3>{{ $usage['label'] }}</h3>
-                                        <strong>{{ number_format($usage['used']) }} / {{ $usage['unlimited'] ? __('Unlimited') : number_format($usage['limit']) }}</strong>
+                                        <strong>{{ $usage['usedLabel'] }} / {{ $usage['limitLabel'] }}</strong>
                                     </div>
                                     @if ($usage['unlimited'])
-                                        <div class="nd-sub-usage-progress is-unlimited" role="img" aria-label="{{ __(':label usage: :used used, unlimited plan capacity', ['label' => $usage['label'], 'used' => number_format($usage['used'])]) }}"><span></span></div>
+                                        <div class="nd-sub-usage-progress is-unlimited" role="img" aria-label="{{ __(':label usage: :used used, unlimited plan capacity', ['label' => $usage['label'], 'used' => $usage['usedLabel']]) }}"><span></span></div>
                                     @else
-                                        <div class="nd-sub-usage-progress" role="progressbar" aria-label="{{ __(':label plan usage', ['label' => $usage['label']]) }}" aria-valuemin="0" aria-valuenow="{{ $usage['used'] }}" aria-valuemax="{{ $usage['limit'] }}"><span style="--nd-usage-width: {{ $usage['percentage'] }}%"></span></div>
+                                        <div class="nd-sub-usage-progress is-{{ $usage['state'] }}" role="progressbar" aria-label="{{ __(':label plan usage', ['label' => $usage['label']]) }}" aria-valuemin="0" aria-valuenow="{{ $usage['used'] }}" aria-valuemax="{{ $usage['limit'] }}"><span style="--nd-usage-width: {{ $usage['percentage'] }}%"></span></div>
                                     @endif
                                 </article>
                             @endforeach

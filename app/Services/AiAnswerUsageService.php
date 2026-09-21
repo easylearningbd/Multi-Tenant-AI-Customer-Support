@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PlanMetric;
 use App\Enums\UsageLedgerStatus;
 use App\Enums\UsageType;
 use App\Models\Bot;
@@ -9,16 +10,13 @@ use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\UsageLedger;
 use App\Models\User;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 final class AiAnswerUsageService
 {
     public function __construct(
-        private readonly CurrentSubscriptionResolver $subscriptions,
-        private readonly PlanLimitService $limits,
+        private readonly PlanUsageService $usage,
     ) {}
 
     public function reserve(User $user, Bot $bot, Conversation $conversation, ConversationMessage $message): UsageLedger
@@ -37,25 +35,16 @@ final class AiAnswerUsageService
                 return $existing;
             }
 
-            $subscription = $this->subscriptions->for($owner);
-            if (! $subscription || ! $subscription->grantsEntitlements()) {
-                throw ValidationException::withMessages([
-                    'plan_limit' => __('An active subscription is required before using AI answers.'),
-                ]);
-            }
-
-            [$periodStart, $periodEnd] = $this->billingPeriod($subscription);
-            $usage = (int) UsageLedger::query()
-                ->forPeriod($owner->id, UsageType::AI_ANSWER, $periodStart, $periodEnd)
-                ->whereIn('status', [UsageLedgerStatus::RESERVED, UsageLedgerStatus::COMMITTED])
-                ->sum('quantity');
-            $this->limits->ensureAllows($subscription, 'ai_answers_per_month', $usage);
+            $subscription = $this->usage->activeSubscription($owner);
+            $period = $this->usage->period($subscription);
+            $this->usage->reserve($owner, $subscription, PlanMetric::AI_ANSWERS, 1);
 
             $ledger = new UsageLedger;
             $ledger->uuid = (string) Str::uuid();
             $ledger->user_id = $owner->id;
             $ledger->bot_id = $bot->id;
             $ledger->subscription_id = $subscription->id;
+            $ledger->plan_id = $subscription->plan_id;
             $ledger->conversation_id = $conversation->id;
             $ledger->source_message_id = $message->id;
             $ledger->fill([
@@ -63,8 +52,8 @@ final class AiAnswerUsageService
                 'type' => UsageType::AI_ANSWER,
                 'status' => UsageLedgerStatus::RESERVED,
                 'quantity' => 1,
-                'period_starts_at' => $periodStart,
-                'period_ends_at' => $periodEnd,
+                'period_starts_at' => $period->startsAt,
+                'period_ends_at' => $period->endsAt,
             ]);
             $ledger->save();
 
@@ -74,9 +63,13 @@ final class AiAnswerUsageService
 
     public function commit(UsageLedger $ledger, string $model, int $inputTokens, int $outputTokens, ?int $estimatedCostMinor = null, ?string $costCurrency = null): void
     {
-        UsageLedger::query()->whereKey($ledger->id)->where('user_id', $ledger->user_id)
-            ->where('bot_id', $ledger->bot_id)->where('status', UsageLedgerStatus::RESERVED)
-            ->update([
+        DB::transaction(function () use ($ledger, $model, $inputTokens, $outputTokens, $estimatedCostMinor, $costCurrency): void {
+            $locked = UsageLedger::query()->whereKey($ledger->id)->where('user_id', $ledger->user_id)
+                ->where('bot_id', $ledger->bot_id)->lockForUpdate()->first();
+            if (! $locked || $locked->status !== UsageLedgerStatus::RESERVED) {
+                return;
+            }
+            $locked->forceFill([
                 'status' => UsageLedgerStatus::COMMITTED,
                 'model' => $model,
                 'input_tokens' => max(0, $inputTokens),
@@ -84,32 +77,33 @@ final class AiAnswerUsageService
                 'estimated_cost_minor' => $estimatedCostMinor,
                 'cost_currency' => $costCurrency,
                 'committed_at' => now('UTC'),
-                'updated_at' => now('UTC'),
-            ]);
+            ])->save();
+            $this->usage->consumeLedgerReservation($locked);
+        }, 3);
     }
 
     public function release(UsageLedger $ledger): void
     {
-        UsageLedger::query()->whereKey($ledger->id)->where('user_id', $ledger->user_id)
-            ->where('bot_id', $ledger->bot_id)->where('status', UsageLedgerStatus::RESERVED)
-            ->update([
+        DB::transaction(function () use ($ledger): void {
+            $locked = UsageLedger::query()->whereKey($ledger->id)->where('user_id', $ledger->user_id)
+                ->where('bot_id', $ledger->bot_id)->lockForUpdate()->first();
+            if (! $locked || $locked->status !== UsageLedgerStatus::RESERVED) {
+                return;
+            }
+            $locked->forceFill([
                 'status' => UsageLedgerStatus::RELEASED,
                 'released_at' => now('UTC'),
-                'updated_at' => now('UTC'),
-            ]);
+            ])->save();
+            $this->usage->releaseLedgerReservation($locked);
+        }, 3);
     }
 
-    /** @return array{CarbonImmutable, CarbonImmutable} */
-    private function billingPeriod($subscription): array
+    public function reservationIsValid(UsageLedger $ledger): bool
     {
-        $now = CarbonImmutable::now('UTC');
-        $start = $subscription->current_period_starts_at
-            ?? $subscription->starts_at
-            ?? $now->startOfMonth();
-        $end = $subscription->current_period_ends_at
-            ?? $subscription->trial_ends_at
-            ?? $now->endOfMonth();
+        $fresh = UsageLedger::query()->with('subscription')->whereKey($ledger->id)
+            ->where('user_id', $ledger->user_id)->where('bot_id', $ledger->bot_id)->first();
 
-        return [CarbonImmutable::instance($start)->utc(), CarbonImmutable::instance($end)->utc()];
+        return $fresh?->status === UsageLedgerStatus::RESERVED
+            && $fresh->subscription?->grantsEntitlements() === true;
     }
 }

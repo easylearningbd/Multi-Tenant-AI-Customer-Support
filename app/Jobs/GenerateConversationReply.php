@@ -75,7 +75,7 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
             return;
         }
         [$bot, $conversation, $message, $ledger] = $context;
-        if ($this->replyExists() || ! $this->acceptsAiReply()) {
+        if ($this->replyExists() || ! $this->acceptsAiReply() || ! $usage->reservationIsValid($ledger)) {
             $usage->release($ledger);
 
             return;
@@ -213,7 +213,7 @@ final class GenerateConversationReply implements ShouldBeUnique, ShouldQueue
             $ledger = UsageLedger::query()->whereKey($this->usageLedgerId)->where('user_id', $this->tenantId)
                 ->where('bot_id', $this->botId)->lockForUpdate()->first();
             if ($ledger?->status === UsageLedgerStatus::RESERVED) {
-                $ledger->forceFill(['status' => UsageLedgerStatus::RELEASED, 'released_at' => now('UTC')])->save();
+                app(AiAnswerUsageService::class)->release($ledger);
             }
             $conversation = $this->lockedConversation();
             $message = ConversationMessage::query()->whereKey($this->messageId)->forTenantBot($this->tenantId, $this->botId)

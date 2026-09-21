@@ -35,14 +35,24 @@ snapshot so later plan edits cannot rewrite historical commercial terms. Effecti
 status is calculated from timestamps at request time, so an expired period cannot remain entitled
 because a scheduled synchronization did not run.
 
-The page currently reports zero usage for AI answers, chatbots, knowledge bases, knowledge sources,
-team members, and storage because none of those tenant-owned tables or ledgers exists yet. Each
-future aggregate belongs in `SubscriberBillingData::usageFor()` and must query through the verified
-billing owner/workspace. The centralized `PlanLimitService` accepts subscriptions and rejects
-expired entitlement records.
+`PlanUsageService` is the authoritative usage and entitlement boundary. Billing renders one summary
+from this service rather than calculating values in Blade. AI answers come from committed,
+idempotent usage-ledger entries in the active monthly window. Active bots are both the chatbot and
+knowledge-base count because this version has no separate knowledge-base root model. Every
+non-deleted knowledge source consumes source capacity, and knowledge storage is the sum of the
+original private file byte sizes. The owner is not counted as a team member; team usage remains zero
+until the membership domain is introduced.
 
-Invoices remain an empty state because the application has no invoice or payment model. The Free
-Trial does not create a fake invoice.
+Limit value `0` is the established unlimited convention. Storage is enforced in bytes even though
+plans configure megabytes. AI and storage work reserve quota atomically before the expensive action,
+then commit or release the reservation. `usage_counters` contains current aggregate/reservation state,
+while `usage_ledgers` remains the append-oriented audit record. Resource counts are always read from
+their authoritative tenant-owned tables.
+
+Run `php artisan usage:reconcile` to rebuild current counters for all subscribers, or pass
+`--tenant=<subscriber-id>` for one owner. The command is idempotent, never reads document content,
+and is scheduled daily at 02:15. A queue worker remains required for `ai-responses`,
+`knowledge-ingestion`, and the other configured application queues.
 
 ## Manual Bank Transfer
 
@@ -86,7 +96,9 @@ not exposed by routes yet. Both require an Admin reviewer, lock the payment, and
 Approval pays the invoice and activates one manual-period subscription. A different plan starts
 immediately and closes the previous entitlement without deleting history. Renewal of the same
 manual plan extends from the later of the current period end or approval time. Monthly and yearly
-period calculations avoid calendar overflow. Rejection preserves the current subscription and
+period calculations avoid calendar overflow. Upgrades retain the current monthly AI-usage anchor,
+so approval does not reset consumed quota. Downgrades never delete resources; over-limit totals are
+shown and new protected writes are blocked. Rejection preserves the current subscription and
 stores the subscriber-visible reason.
 
 Payment submission and review notifications are dispatched after their database transaction has

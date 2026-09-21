@@ -8,6 +8,8 @@
             'title' => $flashToast['title'] ?? __('Notification'),
             'message' => $flashToast['message'],
             'messages' => [],
+            'action_url' => is_string($flashToast['action_url'] ?? null) ? $flashToast['action_url'] : null,
+            'action_label' => is_string($flashToast['action_label'] ?? null) ? $flashToast['action_label'] : null,
         ]);
     }
 
@@ -18,6 +20,8 @@
                 'title' => $title,
                 'message' => session($sessionKey),
                 'messages' => [],
+                'action_url' => null,
+                'action_label' => null,
             ]);
         }
     }
@@ -33,6 +37,8 @@
             'title' => __('Please review the form'),
             'message' => null,
             'messages' => $validationMessages,
+            'action_url' => null,
+            'action_label' => null,
         ]);
     }
 
@@ -63,6 +69,9 @@
                                 <li>{{ $message }}</li>
                             @endforeach
                         </ul>
+                    @endif
+                    @if ($toast['action_url'] && $toast['action_label'])
+                        <a class="btn btn-sm btn-dark mt-2" href="{{ $toast['action_url'] }}">{{ $toast['action_label'] }}</a>
                     @endif
                 </div>
             </div>

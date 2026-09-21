@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\PlanMetric;
+use App\Exceptions\PlanLimitExceededException;
 use App\Models\Plan;
 use App\Models\Subscription;
-use Illuminate\Validation\ValidationException;
 
 final class PlanLimitService
 {
@@ -16,9 +17,7 @@ final class PlanLimitService
     public function ensureAllows(Plan|Subscription $plan, string $limit, int $currentUsage, int $requestedUnits = 1): void
     {
         if (! $this->allows($plan, $limit, $currentUsage, $requestedUnits)) {
-            throw ValidationException::withMessages([
-                'plan_limit' => __('Your current plan limit has been reached.'),
-            ]);
+            throw new PlanLimitExceededException(PlanMetric::from($limit), $currentUsage, $plan->limitFor($limit));
         }
     }
 }

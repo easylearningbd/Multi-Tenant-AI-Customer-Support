@@ -40,6 +40,8 @@ final class BotController extends Controller
                     'type' => 'warning',
                     'title' => __('Bot could not be created'),
                     'message' => collect($exception->errors())->flatten()->first(),
+                    'action_url' => route('billing.index'),
+                    'action_label' => __('View plans'),
                 ]);
         } catch (Throwable $exception) {
             report($exception);

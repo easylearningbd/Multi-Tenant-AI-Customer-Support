@@ -13,6 +13,7 @@ use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\UsagePeriodResolver;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -22,6 +23,8 @@ use Throwable;
 
 final class ApproveBankTransferPayment
 {
+    public function __construct(private readonly UsagePeriodResolver $usagePeriods) {}
+
     /** @throws AuthorizationException */
     public function handle(
         Payment $payment,
@@ -119,8 +122,10 @@ final class ApproveBankTransferPayment
                 ->get()
                 ->first(fn (Subscription $subscription): bool => $subscription->grantsEntitlements($now));
             $periodBase = $now;
+            $usagePeriodAnchor = $now;
 
             if ($current) {
+                $usagePeriodAnchor = $this->usagePeriods->monthly($current, $now)->startsAt;
                 if ($current->plan_id === $plan->id
                     && $current->provider === 'bank_transfer'
                     && $current->current_period_ends_at?->greaterThan($periodBase)) {
@@ -150,7 +155,11 @@ final class ApproveBankTransferPayment
             $subscription->provider = 'bank_transfer';
             $subscription->provider_subscription_id = $lockedPayment->reference;
             $subscription->plan_snapshot = $lockedPayment->plan_snapshot;
-            $subscription->metadata = ['payment_id' => $lockedPayment->id, 'manual_period' => true];
+            $subscription->metadata = [
+                'payment_id' => $lockedPayment->id,
+                'manual_period' => true,
+                'usage_period_anchor' => $usagePeriodAnchor->toIso8601String(),
+            ];
             $subscription->save();
 
             $lockedPayment->subscription_id = $subscription->id;

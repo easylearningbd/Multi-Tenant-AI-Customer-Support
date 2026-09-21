@@ -8,8 +8,12 @@ use App\Enums\KnowledgeSourceType;
 use App\Jobs\ProcessKnowledgeSource;
 use App\Models\Bot;
 use App\Models\KnowledgeChunk;
+use App\Models\KnowledgeSource;
+use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\MySqlVectorStore;
+use App\Services\PlanUsageService;
 use App\Services\SourceTextExtractor;
 use App\Services\TextChunker;
 use App\Services\TextNormalizer;
@@ -75,14 +79,29 @@ function fakeEmbeddingProvider(?Throwable $failure = null, int $dimensions = 3):
     };
 }
 
+function pipelineKnowledgeSource(User $owner, Bot $bot, array $attributes = []): KnowledgeSource
+{
+    return KnowledgeSource::factory()->create(array_replace([
+        'user_id' => $owner->id,
+        'bot_id' => $bot->id,
+        'created_by' => $owner->id,
+    ], $attributes));
+}
+
 function runKnowledgeJob(ProcessKnowledgeSource $job, EmbeddingProviderInterface $provider): void
 {
+    $owner = User::query()->find($job->tenantId);
+    if ($owner && ! $owner->subscriptions()->exists()) {
+        $plan = Plan::factory()->create();
+        Subscription::factory()->for($owner)->for($plan)->create(['plan_snapshot' => $plan->subscriptionSnapshot()]);
+    }
     $job->handle(
         app(SourceTextExtractor::class),
         app(TextNormalizer::class),
         app(TextChunker::class),
         $provider,
         app(MySqlVectorStore::class),
+        app(PlanUsageService::class),
     );
 }
 
@@ -90,7 +109,7 @@ test('job is idempotent and retry does not duplicate chunks', function () {
     $owner = User::factory()->subscriber()->create();
     $bot = Bot::factory()->for($owner)->create();
     $token = (string) Str::uuid();
-    $source = knowledgeSource($owner, $bot, ['raw_text' => 'One factual paragraph. Another reliable paragraph.', 'processing_token' => $token]);
+    $source = pipelineKnowledgeSource($owner, $bot, ['raw_text' => 'One factual paragraph. Another reliable paragraph.', 'processing_token' => $token]);
     $job = new ProcessKnowledgeSource($source->id, $owner->id, $bot->id, $token);
 
     runKnowledgeJob($job, fakeEmbeddingProvider());
@@ -129,7 +148,7 @@ test('completed training makes text txt markdown pdf and docx sources immediatel
             $attributes['file_path'] = $path;
             $attributes['original_filename'] = "source-{$index}.{$format['extension']}";
         }
-        $source = knowledgeSource($owner, $bot, $attributes);
+        $source = pipelineKnowledgeSource($owner, $bot, $attributes);
 
         runKnowledgeJob(new ProcessKnowledgeSource($source->id, $owner->id, $bot->id, $token), fakeEmbeddingProvider());
 
@@ -156,7 +175,7 @@ test('empty extracted content fails safely without becoming trained', function (
     $owner = User::factory()->subscriber()->create();
     $bot = Bot::factory()->for($owner)->create();
     $token = (string) Str::uuid();
-    $source = knowledgeSource($owner, $bot, ['raw_text' => " \n\0 ", 'processing_token' => $token]);
+    $source = pipelineKnowledgeSource($owner, $bot, ['raw_text' => " \n\0 ", 'processing_token' => $token]);
     $job = new ProcessKnowledgeSource($source->id, $owner->id, $bot->id, $token);
 
     try {
@@ -175,7 +194,7 @@ test('failed embedding request keeps prior trained generation active', function 
     $bot = Bot::factory()->for($owner)->create();
     $oldGeneration = (string) Str::uuid();
     $token = (string) Str::uuid();
-    $source = knowledgeSource($owner, $bot, [
+    $source = pipelineKnowledgeSource($owner, $bot, [
         'raw_text' => 'Replacement facts.', 'processing_token' => $token,
         'current_generation_uuid' => $oldGeneration, 'status' => KnowledgeSourceStatus::QUEUED,
     ]);
@@ -199,7 +218,7 @@ test('successful retraining atomically replaces stale chunks', function () {
     $owner = User::factory()->subscriber()->create();
     $bot = Bot::factory()->for($owner)->create();
     $token = (string) Str::uuid();
-    $source = knowledgeSource($owner, $bot, ['raw_text' => 'New current knowledge.', 'processing_token' => $token]);
+    $source = pipelineKnowledgeSource($owner, $bot, ['raw_text' => 'New current knowledge.', 'processing_token' => $token]);
     $stale = KnowledgeChunk::factory()->create([
         'knowledge_source_id' => $source->id, 'user_id' => $owner->id, 'bot_id' => $bot->id,
         'generation_uuid' => (string) Str::uuid(), 'content' => 'Stale knowledge', 'is_active' => true,
@@ -218,9 +237,9 @@ test('mysql similarity is ordered thresholded and isolated by tenant and bot', f
     $bot = Bot::factory()->for($owner)->create();
     $otherBot = Bot::factory()->for($owner)->create();
     $foreignBot = Bot::factory()->for($other)->create();
-    $source = knowledgeSource($owner, $bot, ['status' => KnowledgeSourceStatus::TRAINED]);
-    $otherBotSource = knowledgeSource($owner, $otherBot, ['status' => KnowledgeSourceStatus::TRAINED]);
-    $foreignSource = knowledgeSource($other, $foreignBot, ['status' => KnowledgeSourceStatus::TRAINED]);
+    $source = pipelineKnowledgeSource($owner, $bot, ['status' => KnowledgeSourceStatus::TRAINED]);
+    $otherBotSource = pipelineKnowledgeSource($owner, $otherBot, ['status' => KnowledgeSourceStatus::TRAINED]);
+    $foreignSource = pipelineKnowledgeSource($other, $foreignBot, ['status' => KnowledgeSourceStatus::TRAINED]);
     foreach ([
         [$source, $bot, $owner, [1.0, 0.0, 0.0], 'strong'],
         [$source, $bot, $owner, [0.8, 0.2, 0.0], 'second'],
@@ -243,7 +262,7 @@ test('mysql similarity is ordered thresholded and isolated by tenant and bot', f
 test('malformed stored embeddings are skipped safely', function () {
     $owner = User::factory()->subscriber()->create();
     $bot = Bot::factory()->for($owner)->create();
-    $source = knowledgeSource($owner, $bot, ['status' => KnowledgeSourceStatus::TRAINED]);
+    $source = pipelineKnowledgeSource($owner, $bot, ['status' => KnowledgeSourceStatus::TRAINED]);
     $chunk = KnowledgeChunk::factory()->make(['knowledge_source_id' => $source->id, 'user_id' => $owner->id, 'bot_id' => $bot->id]);
     $attributes = $chunk->getAttributes();
     $attributes['embedding'] = json_encode(['not-a-number']);
